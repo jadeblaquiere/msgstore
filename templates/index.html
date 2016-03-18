@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<link rel="stylesheet" href="css/main.css">
+<link rel="stylesheet" href="static/css/main.css">
 <title>Message Store Console</title>
 </head>
 <body>
@@ -45,7 +45,7 @@
                 <td><a href="api/message/download/{{ m.I }}">{{ m.I }}</a> <a href="api/message/find/{{ m.I }}">message info</a></td>
                 <td>{{ m.size }}</td>
             </tr>
-            {% endfor %}
+            {% end %}
         </table>
     </div>
 </div>
