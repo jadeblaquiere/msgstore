@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import time
 import tornado.escape
 import tornado.ioloop
@@ -190,5 +191,5 @@ if __name__ == "__main__":
     logging.info('scanning message inventory')
     rescan_inventory()
     logging.info('imported %d messages' % len(messagelist))
-    application.listen(5555)
+    application.listen(5000)
     tornado.ioloop.IOLoop.instance().start()
