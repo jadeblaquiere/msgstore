@@ -159,6 +159,7 @@ application = tornado.web.Application([
     (r'/api/message/upload/?', MessageUploadHandler),
     (r'/api/message/list/?', MessageListHandler),
     (r'/api/message/list/since/(?P<time_id>\d+$)/?', MessageListSinceHandler),
+    (r'/api/message/list/since/(?P<time_id>-\d+$)/?', MessageListSinceHandler),
     (r'/api/status/?', StatusHandler),
     (r'/api/time/?', TimeHandler),
     (r'/api/version/?', VersionHandler),
