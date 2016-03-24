@@ -54,8 +54,6 @@ class MessageUploadHandler(tornado.web.RequestHandler):
         J = header.split(':')[3]
         K = header.split(':')[4]
 
-        #app.logger.debug ('checking for dup ' + I)
-        #todo: handle duplicate hash
         for l in messagelist:
             if l.time == int(t,16):
                 if l.expire == int(e,16):
@@ -66,13 +64,12 @@ class MessageUploadHandler(tornado.web.RequestHandler):
                                 os.remove(recvpath)
                                 self.write(l.metadata())
         
-        #app.logger.debug ('no dup ' + I)
-
         m = Message()
         if m.ingest(recvpath,I) != True :
-            app.logger.debug('ingest failed for message ' + I)
+            logging.info('ingest failed for message ' + I)
             os.remove(recvpath)
-            abort(400)
+            self.set_status(400)
+            return
 
         msgpath = config['message_dir'] + I
         m.move_to(msgpath)
@@ -85,7 +82,7 @@ class MessageListHandler(tornado.web.RequestHandler):
         now = int(time.time())
         for m in messagelist:
             if m.expire < now:
-                app.logger.debug('deleting expired message ' + m.I)
+                logging.info('deleting expired message ' + m.I)
                 messagelist.remove(m)
                 m.delete()
             else:
@@ -101,7 +98,7 @@ class MessageListSinceHandler(tornado.web.RequestHandler):
         now = int(time.time())
         for m in messagelist:
             if m.expire < now:
-                app.logger.debug('deleting expired message ' + m.I)
+                logging.info('deleting expired message ' + m.I)
                 messagelist.remove(m)
                 m.delete()
             else:
@@ -117,7 +114,7 @@ class HeaderListSinceHandler(tornado.web.RequestHandler):
         now = int(time.time())
         for m in messagelist:
             if m.expire < now:
-                app.logger.debug('deleting expired message ' + m.I)
+                logging.info('deleting expired message ' + m.I)
                 messagelist.remove(m)
                 m.delete()
             else:
