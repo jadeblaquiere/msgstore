@@ -111,6 +111,22 @@ class MessageListSinceHandler(tornado.web.RequestHandler):
         ml = { "message_list" : l }
         self.write(ml)
 
+class HeaderListSinceHandler(tornado.web.RequestHandler):
+    def get(self, time_id=None):
+        l = []
+        now = int(time.time())
+        for m in messagelist:
+            if m.expire < now:
+                app.logger.debug('deleting expired message ' + m.I)
+                messagelist.remove(m)
+                m.delete()
+            else:
+                if m.servertime > int(time_id):
+                    l.append(m.header)
+        #print 'l=', l
+        ml = { "header_list" : l }
+        self.write(ml)
+
 class StatusHandler(tornado.web.RequestHandler):
     def get(self):
         used = 0
@@ -160,6 +176,8 @@ application = tornado.web.Application([
     (r'/api/message/list/?', MessageListHandler),
     (r'/api/message/list/since/(?P<time_id>\d+$)/?', MessageListSinceHandler),
     (r'/api/message/list/since/(?P<time_id>-\d+$)/?', MessageListSinceHandler),
+    (r'/api/header/list/since/(?P<time_id>\d+$)/?', HeaderListSinceHandler),
+    (r'/api/header/list/since/(?P<time_id>-\d+$)/?', HeaderListSinceHandler),
     (r'/api/status/?', StatusHandler),
     (r'/api/time/?', TimeHandler),
     (r'/api/version/?', VersionHandler),

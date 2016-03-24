@@ -24,6 +24,7 @@ class Message(object):
         self.time_str = None
        	self.expire_str = None
         self.servertime = None
+        self.header = None
         
     def ingest(self, filepath, I = None):
         # validate header
@@ -44,6 +45,7 @@ class Message(object):
             self.I = hsplit[2]
             self.J = hsplit[3]
             self.K = hsplit[4]
+            self.header = header
             self.time_str = time.asctime(time.gmtime(self.time))
             self.expire_str = time.asctime(time.gmtime(self.expire))
             self.servertime = int(os.path.getmtime(filepath))
@@ -67,6 +69,7 @@ class Message(object):
         self.I = None
         self.J = None
         self.K = None
+        self.header = None
         self.size = None
         self.time_str = None
         self.expire_str = None
