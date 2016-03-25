@@ -36,8 +36,8 @@ class MessageUploadHandler(tornado.web.RequestHandler):
     def post(self):
         filereq = self.request
         filedata = self.request.files['message'][0]
-        print('filereq =', filereq)
-        print('filedata =', str(filedata))
+        #print('filereq =', filereq)
+        #print('filedata =', str(filedata))
         recvpath = config['receive_dir'] + str(int(time.time() * 1000))
         logging.info('receiving file as ' + recvpath )
         fh = open(recvpath, 'wb')
@@ -63,6 +63,8 @@ class MessageUploadHandler(tornado.web.RequestHandler):
                                 logging.info ('dup detected')
                                 os.remove(recvpath)
                                 self.write(l.metadata())
+                                self.set_status(400)
+                                return
         
         m = Message()
         if m.ingest(recvpath,I) != True :
