@@ -104,7 +104,7 @@ class MessageListSinceHandler(tornado.web.RequestHandler):
                 messagelist.remove(m)
                 m.delete()
             else:
-                if m.servertime > int(time_id):
+                if m.servertime >= int(time_id):
                     l.append(m.metadata())
         #print 'l=', l
         ml = { "message_list" : l }
@@ -120,7 +120,7 @@ class HeaderListSinceHandler(tornado.web.RequestHandler):
                 messagelist.remove(m)
                 m.delete()
             else:
-                if m.servertime > int(time_id):
+                if m.servertime >= int(time_id):
                     l.append(m.header)
         #print 'l=', l
         ml = { "header_list" : l }
