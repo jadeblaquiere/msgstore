@@ -4,10 +4,31 @@ import tornado.escape
 import tornado.ioloop
 import tornado.web
 import tornado.options
+import tornado.httpclient
 import logging
 import os
 import mmap
 from msgfile import Message
+
+import hashlib
+import base64
+import json
+import binascii
+
+from ecpy.curves import curve_secp256k1
+from ecpy.point import Point, Generator
+from ecpy.ecdsa import ECDSA
+from Crypto.Random import random
+from Crypto.Cipher import AES
+from Crypto.Util import Counter
+
+_curve = curve_secp256k1
+Point.set_curve(_curve)
+_G = Generator(_curve['G'][0], _curve['G'][1])
+ECDSA.set_generator(_G)
+
+server_p = random.randint(1,curve_secp256k1['n']-1)
+server_P = _G * server_p
 
 config={}
 config['receive_dir'] = "recv/"
@@ -17,6 +38,8 @@ config['max_file_size'] = (256*1024*1024)
 config['header_size'] = (8+1+8+1+66+1+66+1+66)
 
 messagelist = []
+
+onion_client = tornado.httpclient.AsyncHTTPClient(max_clients=1000)
 
 class TimeHandler(tornado.web.RequestHandler):
     def get(self):
@@ -138,6 +161,7 @@ class StatusHandler(tornado.web.RequestHandler):
         storage["max_file_size"] = config["max_file_size"]
         storage['messages'] = len(messagelist)
         status["storage"] = storage
+        status["pubkey"] = server_P.compress()
         self.write(status)
 
 class MessageDownloadHandler(tornado.web.RequestHandler):
@@ -167,6 +191,71 @@ class MessageFindHandler(tornado.web.RequestHandler):
             self.set_status(404)
             self.finish()
 
+class OnionHandler(tornado.web.RequestHandler):
+    def callback(self, resp):
+        try:
+            self.write(resp.body)
+        except:
+            self.set_status(400)
+        finally:
+            self.finish()
+        
+    @tornado.web.asynchronous
+    def post(self, pubkey=None):
+        if pubkey is None:
+            self.set_status(400)
+            self.finish()
+        #logging.info('onion: received request')
+        if len(pubkey) != 66:
+            self.set_status(400)
+            self.finish()
+        #logging.info('onion: validated keylength')
+            
+        try:
+            P = Point.decompress(pubkey)
+        except:
+            self.set_status(400)
+            self.finish()
+        
+        ecdh = P * server_p
+        keybin = hashlib.sha256(ecdh.compress()).digest()
+        b = self.request.body
+        bd = base64.b64decode(b)
+        ivcount = int(binascii.hexlify(bd[:32]),16)
+        counter = Counter.new(128,initial_value=ivcount)
+        cryptor = AES.new(keybin, AES.MODE_CTR, counter=counter)
+        plaintext = cryptor.decrypt(bd[32:])
+        #logging.info('onion received: ' + plaintext)
+        
+        o_r = json.loads(plaintext)
+        if o_r['local'] is True:
+            if o_r['action'].lower() == 'get':
+                o_server = 'http://127.0.0.1:5000/'
+                o_path = o_r['url']
+                req = tornado.httpclient.HTTPRequest(o_server+o_path,method='GET')
+                onion_client.fetch(req, self.callback)
+            elif o_r['action'].lower() == 'post':
+                o_server = 'http://127.0.0.1:5000/'
+                o_path = o_r['url']
+                req = tornado.httpclient.HTTPRequest(o_server+o_path,method='POST',body=o_r['body'])
+                onion_client.fetch(req, self.callback)
+        else:
+            if (len(o_r['pubkey']) != 66) or not((o_r['pubkey'][:2] == '02') or
+                                                 (o_r['pubkey'][:2] == '03')):
+                self.set_status(400)
+                self.finish()
+            try:
+                i = int(o_r['pubkey'],16)
+            except:
+                self.set_status(400)
+                self.finish()
+            o_server = 'http://' + o_r['host'] + ':5000/'
+            o_path = 'onion/' + o_r['pubkey']
+            o_body = o_r['body']
+            req = tornado.httpclient.HTTPRequest(o_server+o_path,method='POST', body=o_r['body'])
+            onion_client.fetch(req, self.callback)
+        
+            
 application = tornado.web.Application([
     (r'/static/(.*)/?', tornado.web.StaticFileHandler, {'path':'static'}),
     (r'/api/message/download/(?P<msg_id>[0-9a-fA-F]+$)/?', MessageDownloadHandler),
@@ -180,6 +269,7 @@ application = tornado.web.Application([
     (r'/api/status/?', StatusHandler),
     (r'/api/time/?', TimeHandler),
     (r'/api/version/?', VersionHandler),
+    (r'/onion/(?P<pubkey>[0-9a-fA-F]+$)/?', OnionHandler),
     (r'/?', IndexHandler),
     (r'/index.html', IndexHandler)
 ])
@@ -196,7 +286,7 @@ def rescan_inventory():
                     break
             else:
                 if msg.expire > now:
-                    logging.info('adding ' + fname)
+                    #logging.info('adding ' + fname)
                     messagelist.append(msg)
                 else:
                     logging.info('expired ' + fname)
