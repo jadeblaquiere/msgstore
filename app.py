@@ -36,6 +36,7 @@ config['message_dir'] = "messages/"
 config['capacity'] = (128*1024*1024*1024)
 config['max_file_size'] = (256*1024*1024)
 config['header_size'] = (8+1+8+1+66+1+66+1+66)
+config['version'] = '0.0.2'
 
 messagelist = []
 
@@ -48,7 +49,7 @@ class TimeHandler(tornado.web.RequestHandler):
 
 class VersionHandler(tornado.web.RequestHandler):
     def get(self):
-        response = { 'version': '0.0.1' }
+        response = { 'version': config['version'] }
         self.write(response)
 
 class IndexHandler(tornado.web.RequestHandler):
