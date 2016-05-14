@@ -8,12 +8,16 @@ import tornado.httpclient
 import logging
 import os
 import mmap
+import threading
+
 from msgfile import Message
+from nakcache import NAKCache
+from nak import NAK
 
 import hashlib
 import base64
 import json
-import binascii
+from binascii import hexlify, unhexlify
 
 from ecpy.curves import curve_secp256k1
 from ecpy.point import Point, Generator
@@ -36,9 +40,23 @@ config['message_dir'] = "messages/"
 config['capacity'] = (128*1024*1024*1024)
 config['max_file_size'] = (256*1024*1024)
 config['header_size'] = (8+1+8+1+66+1+66+1+66)
+config['ncache_sleep_interval'] = 30
 config['version'] = '0.0.2'
 
+clopts = []
+clopts.append({'name':'rpcuser', 'default':None})
+clopts.append({'name':'rpcpass', 'default':None})
+clopts.append({'name':'rpchost', 'default':'127.0.0.1'})
+clopts.append({'name':'rpcport', 'default':7765})
+clopts.append({'name':'nakpriv', 'default': None})
+clopts.append({'name':'standalone', 'default': False})
+
 messagelist = []
+ncache = None
+ncache_time_to_die = False
+
+nakpubbin = None
+nak = None
 
 onion_client = tornado.httpclient.AsyncHTTPClient(max_clients=1000)
 
@@ -219,13 +237,24 @@ class OnionHandler(tornado.web.RequestHandler):
             self.finish()
         
         ecdh = P * server_p
-        keybin = hashlib.sha256(ecdh.compress()).digest()
+        keybin = hashlib.sha256(ecdh.compress().encode('UTF-8')).digest()
         b = self.request.body
         bd = base64.b64decode(b)
-        ivcount = int(binascii.hexlify(bd[:32]),16)
+        nakpubraw = hexlify(bd[:33])
+        if not opts['standalone']:
+            nakpub = ncache.get_nak(nakpubraw)
+            if nakpub is None:
+                self.set_status(400)
+                self.finish()
+            sig = (int(hexlify(bd[33:65]),16), int(hexlify(bd[65:97]),16))
+            if not nakpub.verify(sig,bd[97:]):
+                self.set_status(400)
+                self.finish()
+            logging.info('validated access for NAK %s' % nakpubraw)
+        ivcount = int(hexlify(bd[97:129]),16)
         counter = Counter.new(128,initial_value=ivcount)
         cryptor = AES.new(keybin, AES.MODE_CTR, counter=counter)
-        plaintext = cryptor.decrypt(bd[32:])
+        plaintext = cryptor.decrypt(bd[129:]).decode('UTF-8')
         #logging.info('onion received: ' + plaintext)
         
         o_r = json.loads(plaintext)
@@ -241,6 +270,9 @@ class OnionHandler(tornado.web.RequestHandler):
                 req = tornado.httpclient.HTTPRequest(o_server+o_path,method='POST',body=o_r['body'])
                 onion_client.fetch(req, self.callback)
         else:
+            if nak is None:
+                self.set_status(400)
+                self.finish()
             if (len(o_r['pubkey']) != 66) or not((o_r['pubkey'][:2] == '02') or
                                                  (o_r['pubkey'][:2] == '03')):
                 self.set_status(400)
@@ -252,8 +284,11 @@ class OnionHandler(tornado.web.RequestHandler):
                 self.finish()
             o_server = 'http://' + o_r['host'] + ':5000/'
             o_path = 'onion/' + o_r['pubkey']
-            o_body = o_r['body']
-            req = tornado.httpclient.HTTPRequest(o_server+o_path,method='POST', body=o_r['body'])
+            o_raw = base64.b64decode(o_r['body'])
+            sig = nak.sign(o_raw)
+            o_body = base64.b64encode(nakpubbin + unhexlify('%064x' % sig[0]) + 
+                                      unhexlify('%064x' % sig[1]) + o_raw)
+            req = tornado.httpclient.HTTPRequest(o_server+o_path,method='POST', body=o_body)
             onion_client.fetch(req, self.callback)
         
             
@@ -294,9 +329,27 @@ def rescan_inventory():
                     os.remove(filepath)
     messagelist.sort(key=lambda msg: msg.expire, reverse=True)
 
+def nak_sync_thread():
+    while not ncache_time_to_die:
+        time.sleep(config['ncache_sleep_interval'])
+        ncache.sync()
+
 if __name__ == "__main__":
+    for opt in clopts:
+        tornado.options.define(name=opt['name'], default=opt['default'])
     tornado.options.parse_command_line()
     logging.info('msgstore started unix time ' + str(int(time.time())))
+    logging.info('starting NAK cache thread')
+    opts = tornado.options.options
+    ncache = NAKCache(host=opts['rpchost'], 
+                      port=opts['rpcport'], 
+                      rpcuser=opts['rpcuser'], 
+                      rpcpass=opts['rpcpass'])
+    if opts['nakpriv'] is not None:
+        nak = NAK(privkey=int(opts['nakpriv'], 16))
+        nakpubbin = unhexlify(nak.pubkey.compress())
+    if not opts['standalone']:
+        threading.Thread(target=nak_sync_thread).start()
     logging.info('scanning message inventory')
     rescan_inventory()
     logging.info('imported %d messages' % len(messagelist))

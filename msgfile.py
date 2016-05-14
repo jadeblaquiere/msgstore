@@ -30,7 +30,7 @@ class Message(object):
         # validate header
         with open(filepath, "rb") as f:
             mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
-            header = mm[:config['header_size']]
+            header = mm[:config['header_size']].decode('UTF-8')
             mm.close()
             hsplit = header.split(':')
             if len(hsplit) != 5:
@@ -53,16 +53,18 @@ class Message(object):
         return False
 
     def move_to(self, filepath):
-        assert self.filepath is not None, "Attempt to move empty file!"
+        if self.filepath is None:
+            raise ValueError("Attempt to move empty message")
         shutil.move(self.filepath, filepath)
         self.filepath = filepath
 
     def delete(self):
-        assert self.filepath is not None, "Attempt to delete empty shard!"
+        if self.filepath is None:
+            raise ValueError("Attempt to delete empty message!")
         try:
             os.remove(self.filepath)
         except OSError:
-            print 'Error : file not found (continuing)'
+            print('Error : file not found (continuing)')
         self.filepath = None
         self.time = None
         self.expire = None
@@ -76,7 +78,8 @@ class Message(object):
         self.servertime = None
 
     def metadata(self):
-        assert self.filepath is not None, "Attempt to query empty shard!"
+        if self.filepath is None:
+            raise ValueError("Attempt to query empty message!")
         result = {}
         result["time"] = self.time
         result["expire"] = self.expire
