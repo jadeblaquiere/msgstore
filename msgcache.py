@@ -15,6 +15,7 @@ class MessageCache(object):
     def __init__(self):
         self.db = plyvel.DB(config['dbdir'], create_if_missing=True)
         self.messagecount=0
+        self.messagesize=0
     
     def scan_message_dir(self):
         filenames = os.listdir(config['message_dir'])
@@ -38,10 +39,12 @@ class MessageCache(object):
         now = time.time()
         l = []
         count = 0
+        size = 0
         with self.db.iterator() as it:
             for k, v in it:
                 count += 1
                 vdict = json.loads(v.decode('UTF-8'))
+                size += vdict['size']
                 if vdict['expire'] < now:
                     path = vdist['filepath']
                     os.remove(path)
@@ -49,17 +52,20 @@ class MessageCache(object):
                 else:
                     l.append(vdict)
         self.messagecount = count
+        self.messagesize = count
         return l
 
     def list_since(self, servertime):
         now = time.time()
         l = []
         count = 0
+        size = 0
         stime = int(servertime)
         with self.db.iterator() as it:
             for k, v in it:
                 count += 1
                 vdict = json.loads(v.decode('UTF-8'))
+                size += vdict['size']
                 if vdict['expire'] < now:
                     path = vdist['filepath']
                     os.remove(path)
@@ -68,16 +74,19 @@ class MessageCache(object):
                     if vdict['servertime'] >= stime:
                         l.append(vdict)
         self.messagecount = count
+        self.messagesize = count
         return l
 
     def header_list_all(self):
         now = time.time()
         l = []
         count = 0
+        size = 0
         with self.db.iterator() as it:
             for k, v in it:
                 count += 1
                 vdict = json.loads(v.decode('UTF-8'))
+                size += vdict['size']
                 if vdict['expire'] < now:
                     path = vdist['filepath']
                     os.remove(path)
@@ -85,17 +94,20 @@ class MessageCache(object):
                 else:
                     l.append(vdict['header'])
         self.messagecount = count
+        self.messagesize = count
         return l
 
     def header_list_since(self, servertime):
         now = time.time()
         l = []
         count = 0
+        size = 0
         stime = int(servertime)
         with self.db.iterator() as it:
             for k, v in it:
                 count += 1
                 vdict = json.loads(v.decode('UTF-8'))
+                size += vdict['size']
                 if vdict['expire'] < now:
                     path = vdict['filepath']
                     os.remove(path)
@@ -104,6 +116,7 @@ class MessageCache(object):
                     if int(vdict['servertime']) >= stime:
                         l.append(vdict['header'])
         self.messagecount = count
+        self.messagesize = count
         return l
 
     def get(self,I):

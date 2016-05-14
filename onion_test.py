@@ -21,6 +21,7 @@ client_p = random.randint(1,curve_secp256k1['n']-1)
 client_P = _G * client_p
 
 _server = "http://127.0.0.1:5000/"
+_server2 = "http://coopr8.com:5000/"
 _status = "api/status/"
 _onion = "onion/"
 _nak_priv = 0xf1a91fc566427a45cd6cdd43f5fc5647b1d6696a5b03f868b9bb8b01b631ae91
@@ -62,7 +63,7 @@ print("text = " + r.text)
 
 oo_r = {}
 oo_r['local'] = False
-oo_r['host'] = '127.0.0.1'
+oo_r['host'] = 'indigo.bounceme.net'
 oo_r['pubkey'] = client_P.compress()
 oo_r['body'] = base64.b64encode(raw).decode('UTF-8')
 
@@ -84,7 +85,7 @@ sig = nak.sign(raw)
 signed = nakpubbin + unhexlify('%064x' % sig[0]) + unhexlify('%064x' % sig[1]) + raw
 payload = base64.b64encode(signed)
 
-r = requests.post(_server + _onion + client_P.compress(), data=payload)
+r = requests.post(_server2 + _onion + client_P.compress(), data=payload)
 assert r.status_code == 200
 print("text = " + r.text)
 
