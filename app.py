@@ -75,7 +75,7 @@ class VersionHandler(tornado.web.RequestHandler):
 
 class IndexHandler(tornado.web.RequestHandler):
     def get(self):
-        messagelist = sorted(mcache.list_all(), key=lambda k: k['expire'])
+        messagelist = sorted(mcache.list_all(), key=lambda k: k['expire'], reverse=True)
         self.render("templates/index.html", messagelist=messagelist)
 
 class MessageUploadHandler(tornado.web.RequestHandler):
