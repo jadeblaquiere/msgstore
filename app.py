@@ -221,6 +221,7 @@ class OnionHandler(tornado.web.RequestHandler):
         ivcount = int(hexlify(bd[97:129]),16)
         counter = Counter.new(128,initial_value=ivcount)
         cryptor = AES.new(keybin, AES.MODE_CTR, counter=counter)
+        o_r = None
         try:
             # if the key/iv is wrong, likely to throw an exception
             plaintext = cryptor.decrypt(bd[129:]).decode('UTF-8')
