@@ -56,9 +56,6 @@ class MessageCache(object):
         l = []
         count = 0
         stime = int(servertime)
-        if self.newestfirst is None:
-            self._gentimeindex()
-        
         with self.db.iterator() as it:
             for k, v in it:
                 count += 1
