@@ -8,6 +8,7 @@ import time
 import mmap
 import os
 import shutil
+import json
 
 config = {}
 config['header_size'] = (8+1+8+1+66+1+66+1+66)
@@ -92,5 +93,42 @@ class Message(object):
         result["servertime"] = self.servertime
         return result
 
+    def dumpjson(self):
+        if self.filepath is None:
+            raise ValueError("Attempt to query empty message!")
+        result = {}
+        result["filepath"] = self.filepath
+        result["time"] = self.time
+        result["expire"] = self.expire
+        result["I"] = self.I
+        result["J"] = self.J
+        result["K"] = self.K
+        result["size"] = self.size
+        result["time_str"] = self.time_str
+        result["expire_str"] = self.expire_str
+        result["servertime"] = self.servertime
+        result["header"] = self.header
+        return json.dumps(result)
+
+    @staticmethod
+    def loadjson(msgjson):
+        try:
+            mdict = json.loads(msgjson)
+            mnew = Message()
+            mnew.filepath = mdict['filepath']
+            mnew.time = mdict['time']
+            mnew.expire = mdict['expire']
+            mnew.I = mdict['I']
+            mnew.J = mdict['J']
+            mnew.K = mdict['K']
+            mnew.size = mdict['size']
+            mnew.time_str = mdict['time_str']
+            mnew.expire_str = mdict['expire_str']
+            mnew.servertime = mdict['servertime']
+            mnew.header = mdict['header']
+            return mnew
+        except:
+            return None
+    
     def get_file(self):
         return open(self.filepath, "rb")

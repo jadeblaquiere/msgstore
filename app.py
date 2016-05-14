@@ -14,6 +14,8 @@ from msgfile import Message
 from nakcache import NAKCache
 from nak import NAK
 
+from msgcache import MessageCache
+
 import hashlib
 import base64
 import json
@@ -51,12 +53,13 @@ clopts.append({'name':'rpcport', 'default':7765})
 clopts.append({'name':'nakpriv', 'default': None})
 clopts.append({'name':'standalone', 'default': False})
 
-messagelist = []
 ncache = None
 ncache_time_to_die = False
 
 nakpubbin = None
 nak = None
+
+mcache = None
 
 onion_client = tornado.httpclient.AsyncHTTPClient(max_clients=1000)
 
@@ -72,6 +75,7 @@ class VersionHandler(tornado.web.RequestHandler):
 
 class IndexHandler(tornado.web.RequestHandler):
     def get(self):
+        messagelist = sorted(mcache.list_all(), key=lambda k: k['expire'])
         self.render("templates/index.html", messagelist=messagelist)
 
 class MessageUploadHandler(tornado.web.RequestHandler):
@@ -88,7 +92,7 @@ class MessageUploadHandler(tornado.web.RequestHandler):
     
         with open(recvpath,'rb') as f :
             mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
-            header = mm[:config['header_size']]
+            header = mm[:config['header_size']].decode('UTF-8')
             mm.close()
         t = header.split(':')[0]
         e = header.split(':')[1]
@@ -96,17 +100,13 @@ class MessageUploadHandler(tornado.web.RequestHandler):
         J = header.split(':')[3]
         K = header.split(':')[4]
 
-        for l in messagelist:
-            if l.time == int(t,16):
-                if l.expire == int(e,16):
-                    if l.I == I:
-                        if l.J == J:
-                            if l.K == K:
-                                logging.info ('dup detected')
-                                os.remove(recvpath)
-                                self.write(l.metadata())
-                                self.set_status(400)
-                                return
+        seek = mcache.get(I)
+        if seek is not None:
+            logging.info ('dup detected')
+            os.remove(recvpath)
+            self.write(l.metadata())
+            self.set_status(400)
+            return
         
         m = Message()
         if m.ingest(recvpath,I) != True :
@@ -117,54 +117,27 @@ class MessageUploadHandler(tornado.web.RequestHandler):
 
         msgpath = config['message_dir'] + I
         m.move_to(msgpath)
-        messagelist.insert(0,m)
+        mcache.add(m)
+        #messagelist.insert(0,m)
         self.write(m.metadata())
+
 
 class MessageListHandler(tornado.web.RequestHandler):
     def get(self):
-        l = []
-        now = int(time.time())
-        for m in messagelist:
-            if m.expire < now:
-                logging.info('deleting expired message ' + m.I)
-                messagelist.remove(m)
-                m.delete()
-            else:
-                l.append(m.metadata())
-        #print 'l=', l
+        l = mcache.list_all()
         ml = { "message_list" : l }
         self.write(ml)
 
 
 class MessageListSinceHandler(tornado.web.RequestHandler):
-    def get(self, time_id=None):
-        l = []
-        now = int(time.time())
-        for m in messagelist:
-            if m.expire < now:
-                logging.info('deleting expired message ' + m.I)
-                messagelist.remove(m)
-                m.delete()
-            else:
-                if m.servertime >= int(time_id):
-                    l.append(m.metadata())
-        #print 'l=', l
+    def get(self, time_id=0):
+        l = mcache.list_since(time_id)
         ml = { "message_list" : l }
         self.write(ml)
 
 class HeaderListSinceHandler(tornado.web.RequestHandler):
-    def get(self, time_id=None):
-        l = []
-        now = int(time.time())
-        for m in messagelist:
-            if m.expire < now:
-                logging.info('deleting expired message ' + m.I)
-                messagelist.remove(m)
-                m.delete()
-            else:
-                if m.servertime >= int(time_id):
-                    l.append(m.header)
-        #print 'l=', l
+    def get(self, time_id=0):
+        l = mcache.header_list_since(time_id)
         ml = { "header_list" : l }
         self.write(ml)
 
@@ -178,7 +151,7 @@ class StatusHandler(tornado.web.RequestHandler):
         storage["capacity"] = config["capacity"]
         storage["used"] = used
         storage["max_file_size"] = config["max_file_size"]
-        storage['messages'] = len(messagelist)
+        storage['messages'] = mcache.messagecount
         status["storage"] = storage
         status["pubkey"] = server_P.compress()
         self.write(status)
@@ -186,29 +159,26 @@ class StatusHandler(tornado.web.RequestHandler):
 class MessageDownloadHandler(tornado.web.RequestHandler):
     def get(self, msg_id=None):
         logging.info('download hash ' + str(msg_id))
-        for m in messagelist :
-            if m.I == msg_id :
-                with m.get_file() as f:
-                    self.set_header('Content-Type','application/octet-stream' )
-                    while 1:
-                        data = f.read(16384) # or some other nice-sized chunk
-                        if not data: break
-                        self.write(data)
-                    self.finish()
-                    return
-        else :
+        m = mcache.get(msg_id)
+        if m is None:
             self.set_status(404)
+            self.finish()
+        with m.get_file() as f:
+            self.set_header('Content-Type','application/octet-stream' )
+            while 1:
+                data = f.read(16384) # or some other nice-sized chunk
+                if not data: break
+                self.write(data)
             self.finish()
 
 class MessageFindHandler(tornado.web.RequestHandler):
     def get(self, msg_id=None):
-        for m in messagelist:
-            if m.I == msg_id :
-                self.write(m.metadata())
-                return
-        else :
+        m = mcache.get(msg_id)
+        if m is None:
             self.set_status(404)
             self.finish()
+        self.write(m.metadata())
+        self.finish()
 
 class OnionHandler(tornado.web.RequestHandler):
     def callback(self, resp):
@@ -310,25 +280,6 @@ application = tornado.web.Application([
     (r'/index.html', IndexHandler)
 ])
  
-def rescan_inventory():
-    filenames = os.listdir(config['message_dir'])
-    now = int(time.time())
-    for fname in filenames:
-        filepath = config['message_dir'] + '/' + fname
-        msg = Message()
-        if msg.ingest(filepath):
-            for m in messagelist:
-                if m.metadata() == msg.metadata:
-                    break
-            else:
-                if msg.expire > now:
-                    #logging.info('adding ' + fname)
-                    messagelist.append(msg)
-                else:
-                    logging.info('expired ' + fname)
-                    os.remove(filepath)
-    messagelist.sort(key=lambda msg: msg.expire, reverse=True)
-
 def nak_sync_thread():
     while not ncache_time_to_die:
         time.sleep(config['ncache_sleep_interval'])
@@ -341,6 +292,7 @@ if __name__ == "__main__":
     logging.info('msgstore started unix time ' + str(int(time.time())))
     logging.info('starting NAK cache thread')
     opts = tornado.options.options
+    mcache = MessageCache()
     ncache = NAKCache(host=opts['rpchost'], 
                       port=opts['rpcport'], 
                       rpcuser=opts['rpcuser'], 
@@ -351,7 +303,7 @@ if __name__ == "__main__":
     if not opts['standalone']:
         threading.Thread(target=nak_sync_thread).start()
     logging.info('scanning message inventory')
-    rescan_inventory()
-    logging.info('imported %d messages' % len(messagelist))
+    mcache.scan_message_dir()
+    logging.info('imported messages from filesystem')
     application.listen(5000)
     tornado.ioloop.IOLoop.instance().start()

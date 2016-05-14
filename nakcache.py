@@ -18,7 +18,6 @@ class NAKCache(object):
     def __init__(self, dbdir=config['dbdir'], host=config['rpchost'], 
                  port=config['rpcport'], rpcuser=None, rpcpass=None, 
                  minconf=config['minconf']):
-        self.naklist = []
         self.blockcount = 0
         rpcstr = ''
         if rpcuser is not None and rpcpass is not None:

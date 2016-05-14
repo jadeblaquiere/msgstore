@@ -40,10 +40,10 @@
             </tr>
             {% for m in messagelist %}
             <tr>
-                <td>{{ m.time_str }}</td>
-                <td>{{ m.expire_str }}</td>
-                <td><a href="api/message/download/{{ m.I }}">{{ m.I }}</a> <a href="api/message/find/{{ m.I }}">message info</a></td>
-                <td>{{ m.size }}</td>
+                <td>{{ m['time_str'] }}</td>
+                <td>{{ m['expire_str'] }}</td>
+                <td><a href="api/message/download/{{ m['I'] }}">{{ m['I'] }}</a> <a href="api/message/find/{{ m['I'] }}">message info</a></td>
+                <td>{{ m['size'] }}</td>
             </tr>
             {% end %}
         </table>
