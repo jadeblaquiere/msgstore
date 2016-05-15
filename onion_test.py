@@ -61,6 +61,12 @@ r = requests.post(_server + _onion + client_P.compress(), data=payload)
 assert r.status_code == 200
 print("text = " + r.text)
 
+r = requests.get(_server + _status)
+assert r.status_code == 200
+rd = r.json()
+
+server_P2 = Point.decompress(rd['pubkey'])
+
 oo_r = {}
 oo_r['local'] = False
 oo_r['host'] = 'indigo.bounceme.net'
@@ -72,7 +78,7 @@ client_P = _G * client_p
 
 message = json.dumps(oo_r)
 
-ecdh = server_P * client_p
+ecdh = server_P2 * client_p
 keybin = hashlib.sha256(ecdh.compress().encode('UTF-8')).digest()
 iv = random.randint(0,(1 << 256)-1)
 print('iv = 0x%064x' % iv)
