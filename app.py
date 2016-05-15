@@ -221,12 +221,8 @@ class OnionHandler(tornado.web.RequestHandler):
         ivcount = int(hexlify(bd[97:129]),16)
         counter = Counter.new(128,initial_value=ivcount)
         cryptor = AES.new(keybin, AES.MODE_CTR, counter=counter)
-        try:
-            # if the key/iv is wrong, likely to throw an exception
-            plaintext = cryptor.decrypt(bd[129:]).decode('UTF-8')
-        except:
-            self.set_status(400)
-            self.finish()
+        plaintext = cryptor.decrypt(bd[129:])
+        plaintext = plaintext.decode('UTF-8')
         #logging.info('onion received: ' + plaintext)
         o_r = json.loads(plaintext)
         
@@ -295,10 +291,11 @@ if __name__ == "__main__":
     logging.info('starting NAK cache thread')
     opts = tornado.options.options
     mcache = MessageCache()
-    ncache = NAKCache(host=opts['rpchost'], 
-                      port=opts['rpcport'], 
-                      rpcuser=opts['rpcuser'], 
-                      rpcpass=opts['rpcpass'])
+    if not opts['standalone']:
+        ncache = NAKCache(host=opts['rpchost'], 
+                          port=opts['rpcport'], 
+                          rpcuser=opts['rpcuser'], 
+                          rpcpass=opts['rpcpass'])
     if opts['nakpriv'] is not None:
         nak = NAK(privkey=int(opts['nakpriv'], 16))
         nakpubbin = unhexlify(nak.pubkey.compress())

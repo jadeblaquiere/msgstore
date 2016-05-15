@@ -46,7 +46,7 @@ class MessageCache(object):
                 vdict = json.loads(v.decode('UTF-8'))
                 size += vdict['size']
                 if vdict['expire'] < now:
-                    path = vdist['filepath']
+                    path = vdict['filepath']
                     os.remove(path)
                     self.db.delete(k)
                 else:
@@ -67,7 +67,7 @@ class MessageCache(object):
                 vdict = json.loads(v.decode('UTF-8'))
                 size += vdict['size']
                 if vdict['expire'] < now:
-                    path = vdist['filepath']
+                    path = vdict['filepath']
                     os.remove(path)
                     self.db.delete(k)
                 else:
@@ -88,7 +88,7 @@ class MessageCache(object):
                 vdict = json.loads(v.decode('UTF-8'))
                 size += vdict['size']
                 if vdict['expire'] < now:
-                    path = vdist['filepath']
+                    path = vdict['filepath']
                     os.remove(path)
                     self.db.delete(k)
                 else:
