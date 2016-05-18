@@ -61,6 +61,8 @@ nak = None
 
 mcache = None
 
+ecdsa = ECDSA()
+
 onion_client = tornado.httpclient.AsyncHTTPClient(max_clients=1000)
 
 class TimeHandler(tornado.web.RequestHandler):
@@ -186,6 +188,26 @@ class OnionHandler(tornado.web.RequestHandler):
         finally:
             self.finish()
         
+    def callback_encrypt(self, resp):
+        ecdh = self.client_R * server_p
+        keybin = hashlib.sha256(ecdh.compress().encode('UTF-8')).digest()
+        #logging.info('ecdh key hex = ' + str(hexlify(keybin)))
+        iv = random.randint(0,(1 << 128)-1)
+        ivbin = unhexlify('%032x' % iv)
+        #logging.info('iv hex = ' + str(hexlify(ivbin)))
+        counter = Counter.new(128, initial_value=iv)
+        cryptor = AES.new(keybin, AES.MODE_CTR, counter=counter)
+        ciphertext = cryptor.encrypt(resp.body)
+        sig = ecdsa.sign(server_p, ivbin + ciphertext)
+        #logging.info('sig = ' + str(sig))
+        sigbin = unhexlify('%064x' % sig[0]) + unhexlify('%064x' % sig[1])
+        try:
+            self.write(base64.b64encode(sigbin + ivbin + ciphertext))
+        except:
+            self.set_status(400)
+        finally:
+            self.finish()
+        
     @tornado.web.asynchronous
     def post(self, pubkey=None):
         if pubkey is None:
@@ -218,10 +240,10 @@ class OnionHandler(tornado.web.RequestHandler):
                 self.set_status(400)
                 self.finish()
             logging.info('validated access for NAK %s' % nakpubraw)
-        ivcount = int(hexlify(bd[97:129]),16)
+        ivcount = int(hexlify(bd[97:113]),16)
         counter = Counter.new(128,initial_value=ivcount)
         cryptor = AES.new(keybin, AES.MODE_CTR, counter=counter)
-        plaintext = cryptor.decrypt(bd[129:])
+        plaintext = cryptor.decrypt(bd[113:])
         plaintext = plaintext.decode('UTF-8')
         #logging.info('onion received: ' + plaintext)
         o_r = json.loads(plaintext)
@@ -230,13 +252,15 @@ class OnionHandler(tornado.web.RequestHandler):
             if o_r['action'].lower() == 'get':
                 o_server = 'http://127.0.0.1:5000/'
                 o_path = o_r['url']
+                self.client_R = Point.decompress(o_r['replykey'])
                 req = tornado.httpclient.HTTPRequest(o_server+o_path,method='GET')
-                onion_client.fetch(req, self.callback)
+                onion_client.fetch(req, self.callback_encrypt)
             elif o_r['action'].lower() == 'post':
                 o_server = 'http://127.0.0.1:5000/'
                 o_path = o_r['url']
+                self.client_R = Point.decompress(o_r['replykey'])
                 req = tornado.httpclient.HTTPRequest(o_server+o_path,method='POST',body=o_r['body'])
-                onion_client.fetch(req, self.callback)
+                onion_client.fetch(req, self.callback_encrypt)
         else:
             if nak is None:
                 self.set_status(400)
