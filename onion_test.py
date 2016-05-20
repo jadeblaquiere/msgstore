@@ -28,8 +28,6 @@ ecdsa=ECDSA()
 _server = "http://indigo.bounceme.net:5000/"
 _server2 = "http://coopr8.com:5000/"
 _server3 = "http://ciphrtxt.com:5000/"
-_server2 = "http://indigo.bounceme.net:5000/"
-_server3 = "http://indigo.bounceme.net:5000/"
 _status = "api/status/"
 _onion = "onion/"
 _nak_priv = 0xf1a91fc566427a45cd6cdd43f5fc5647b1d6696a5b03f868b9bb8b01b631ae91
@@ -50,7 +48,7 @@ o_r = {}
 o_r['local'] = True
 o_r['url'] = 'api/status/'
 o_r['action'] = 'get'
-o_r['replykey'] = client_R.compress().encode('UTF-8')
+o_r['replykey'] = client_R.compress()
 
 message = json.dumps(o_r)
 
@@ -93,6 +91,7 @@ server_P2 = Point.decompress(rd['pubkey'])
 oo_r = {}
 oo_r['local'] = False
 oo_r['host'] = 'indigo.bounceme.net'
+oo_r['port'] = 5000
 oo_r['pubkey'] = client_P.compress()
 oo_r['body'] = base64.b64encode(raw).decode('UTF-8')
 
@@ -139,7 +138,8 @@ server_P3 = Point.decompress(rd['pubkey'])
 
 ooo_r = {}
 ooo_r['local'] = False
-ooo_r['host'] = 'indigo.bounceme.net'
+ooo_r['host'] = 'coopr8.com'
+ooo_r['port'] = 5000
 ooo_r['pubkey'] = client_P.compress()
 ooo_r['body'] = base64.b64encode(raw).decode('UTF-8')
 

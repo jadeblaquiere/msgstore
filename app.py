@@ -179,6 +179,12 @@ class MessageFindHandler(tornado.web.RequestHandler):
         self.write(m.metadata())
         self.finish()
 
+class PeerListhandler(tornado.web.RequestHandler):
+    pass
+
+class PeerUpdatehandler(tornado.web.RequestHandler):
+    pass
+
 class OnionHandler(tornado.web.RequestHandler):
     def callback(self, resp):
         try:
@@ -294,6 +300,8 @@ application = tornado.web.Application([
     (r'/api/message/list/since/(?P<time_id>-\d+$)/?', MessageListSinceHandler),
     (r'/api/header/list/since/(?P<time_id>\d+$)/?', HeaderListSinceHandler),
     (r'/api/header/list/since/(?P<time_id>-\d+$)/?', HeaderListSinceHandler),
+    (r'/api/peer/list/?', PeerListHandler),
+    (r'/api/peer/update/?', PeerUpdateHandler),
     (r'/api/status/?', StatusHandler),
     (r'/api/time/?', TimeHandler),
     (r'/api/version/?', VersionHandler),
