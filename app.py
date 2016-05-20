@@ -9,12 +9,14 @@ import logging
 import os
 import mmap
 import threading
+import socket
 
 from msgfile import Message
 from nakcache import NAKCache
 from nak import NAK
 
 from msgcache import MessageCache
+from peercache import PeerCache
 
 import hashlib
 import base64
@@ -51,6 +53,8 @@ clopts.append({'name':'rpcpass', 'default':None})
 clopts.append({'name':'rpchost', 'default':'127.0.0.1'})
 clopts.append({'name':'rpcport', 'default':7765})
 clopts.append({'name':'nakpriv', 'default': None})
+clopts.append({'name':'exthost', 'default': None})
+clopts.append({'name':'extport', 'default': 5000})
 clopts.append({'name':'standalone', 'default': False})
 
 ncache = None
@@ -60,6 +64,7 @@ nakpubbin = None
 nak = None
 
 mcache = None
+pcache = None
 
 ecdsa = ECDSA()
 
@@ -179,10 +184,13 @@ class MessageFindHandler(tornado.web.RequestHandler):
         self.write(m.metadata())
         self.finish()
 
-class PeerListhandler(tornado.web.RequestHandler):
-    pass
+class PeerListHandler(tornado.web.RequestHandler):
+    def get(self):
+        l = pcache.list_peers()
+        self.write(json.dumps(l))
+        self.finish
 
-class PeerUpdatehandler(tornado.web.RequestHandler):
+class PeerUpdateHandler(tornado.web.RequestHandler):
     pass
 
 class OnionHandler(tornado.web.RequestHandler):
@@ -323,6 +331,10 @@ if __name__ == "__main__":
     logging.info('starting NAK cache thread')
     opts = tornado.options.options
     mcache = MessageCache()
+    hname =opts['exthost']
+    if hname is None:
+        hname = socket.gethostname()
+    pcache = PeerCache(hname, opts['extport'])
     if not opts['standalone']:
         ncache = NAKCache(host=opts['rpchost'], 
                           port=opts['rpcport'], 
