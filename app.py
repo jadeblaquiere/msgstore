@@ -55,6 +55,8 @@ clopts.append({'name':'rpcport', 'default':7765})
 clopts.append({'name':'nakpriv', 'default': None})
 clopts.append({'name':'exthost', 'default': None})
 clopts.append({'name':'extport', 'default': 5000})
+clopts.append({'name':'coinhost', 'default': None})
+clopts.append({'name':'coinport', 'default': 7764})
 clopts.append({'name':'standalone', 'default': False})
 
 ncache = None
@@ -191,10 +193,23 @@ class PeerListHandler(tornado.web.RequestHandler):
         self.finish
 
 class PeerUpdateHandler(tornado.web.RequestHandler):
-    pass
+    def post(self):
+        try:
+            b = self.request.body
+            d = json.loads(b.decode('UTF-8'))
+            if d['host'].lower() != 'localhost':
+                logging.info('adding potential peer ' + d['host'])
+                pcache.add_peer(d['host'], d['port'])
+            self.finish()
+        except:
+            self.set_status(400)
+            self.finish()
 
 class OnionHandler(tornado.web.RequestHandler):
     def callback(self, resp):
+        if resp.code != 200:
+            self.set_status(400)
+            self.finish()
         try:
             self.write(resp.body)
         except:
@@ -203,6 +218,9 @@ class OnionHandler(tornado.web.RequestHandler):
             self.finish()
         
     def callback_encrypt(self, resp):
+        if resp.code != 200:
+            self.set_status(400)
+            self.finish()
         ecdh = self.client_R * server_p
         keybin = hashlib.sha256(ecdh.compress().encode('UTF-8')).digest()
         #logging.info('ecdh key hex = ' + str(hexlify(keybin)))
@@ -267,13 +285,20 @@ class OnionHandler(tornado.web.RequestHandler):
                 o_server = 'http://127.0.0.1:5000/'
                 o_path = o_r['url']
                 self.client_R = Point.decompress(o_r['replykey'])
-                req = tornado.httpclient.HTTPRequest(o_server+o_path,method='GET')
+                req = tornado.httpclient.HTTPRequest(o_server+o_path,
+                                                     method='GET', 
+                                                     connect_timeout=30, 
+                                                     request_timeout=60)
                 onion_client.fetch(req, self.callback_encrypt)
             elif o_r['action'].lower() == 'post':
                 o_server = 'http://127.0.0.1:5000/'
                 o_path = o_r['url']
                 self.client_R = Point.decompress(o_r['replykey'])
-                req = tornado.httpclient.HTTPRequest(o_server+o_path,method='POST',body=o_r['body'])
+                req = tornado.httpclient.HTTPRequest(o_server+o_path,
+                                                     method='POST',
+                                                     body=o_r['body'],
+                                                     connect_timeout=30,
+                                                     request_timeout=60)
                 onion_client.fetch(req, self.callback_encrypt)
         else:
             if nak is None:
@@ -294,7 +319,11 @@ class OnionHandler(tornado.web.RequestHandler):
             sig = nak.sign(o_raw)
             o_body = base64.b64encode(nakpubbin + unhexlify('%064x' % sig[0]) + 
                                       unhexlify('%064x' % sig[1]) + o_raw)
-            req = tornado.httpclient.HTTPRequest(o_server+o_path,method='POST', body=o_body)
+            req = tornado.httpclient.HTTPRequest(o_server+o_path,
+                                                 method='POST', 
+                                                 body=o_body,
+                                                 connect_timeout=30,
+                                                 request_timeout=60)
             onion_client.fetch(req, self.callback)
         
             
@@ -334,12 +363,16 @@ if __name__ == "__main__":
     hname =opts['exthost']
     if hname is None:
         hname = socket.gethostname()
-    pcache = PeerCache(hname, opts['extport'])
     if not opts['standalone']:
         ncache = NAKCache(host=opts['rpchost'], 
                           port=opts['rpcport'], 
                           rpcuser=opts['rpcuser'], 
                           rpcpass=opts['rpcpass'])
+        coinhost = opts['coinhost']
+        if coinhost is None:
+            coinhost = hname
+        coinport = opts['coinport']
+    pcache = PeerCache(hname, opts['extport'])
     if opts['nakpriv'] is not None:
         nak = NAK(privkey=int(opts['nakpriv'], 16))
         nakpubbin = unhexlify(nak.pubkey.compress())

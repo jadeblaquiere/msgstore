@@ -52,7 +52,7 @@ class MessageCache(object):
                 else:
                     l.append(vdict)
         self.messagecount = count
-        self.messagesize = count
+        self.messagesize = size
         return l
 
     def list_since(self, servertime):
@@ -74,7 +74,7 @@ class MessageCache(object):
                     if vdict['servertime'] >= stime:
                         l.append(vdict)
         self.messagecount = count
-        self.messagesize = count
+        self.messagesize = size
         return l
 
     def header_list_all(self):
@@ -94,7 +94,7 @@ class MessageCache(object):
                 else:
                     l.append(vdict['header'])
         self.messagecount = count
-        self.messagesize = count
+        self.messagesize = size
         return l
 
     def header_list_since(self, servertime):
@@ -116,7 +116,7 @@ class MessageCache(object):
                     if int(vdict['servertime']) >= stime:
                         l.append(vdict['header'])
         self.messagecount = count
-        self.messagesize = count
+        self.messagesize = size
         return l
 
     def get(self,I):
