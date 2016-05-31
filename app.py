@@ -363,9 +363,11 @@ if __name__ == "__main__":
     logging.info('starting NAK cache thread')
     opts = tornado.options.options
     mcache = MessageCache()
-    hname =opts['exthost']
+    hname = opts['exthost']
     if hname is None:
+        logging.info('looking up hostname')
         hname = socket.gethostname()
+    logging.info('starting service for ' + hname)
     if not opts['standalone']:
         ncache = NAKCache(host=opts['rpchost'], 
                           port=opts['rpcport'], 

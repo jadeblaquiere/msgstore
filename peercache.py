@@ -116,6 +116,7 @@ class PeerHost(object):
     def refresh(self):
         r = None
         rtime = time.time()
+        logging.info('refresh called for ' + self._baseurl())
         req = HTTPRequest(self._baseurl() + _statusPath, method='GET', connect_timeout=30, request_timeout=60)
         try:
             r = sclient.fetch(req)

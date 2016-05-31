@@ -45,6 +45,7 @@ class MsgStore (object):
             delay = now - self.last_sync
             if (now - self.last_sync) < _cache_expire_time:
                 return True
+        print('request headers from ' + self.baseurl)
         r = requests.get(self.baseurl + _server_time)
         if r.status_code != 200:
             return False
