@@ -316,59 +316,62 @@ class PeerCache (object):
         last_msync = 0
         
         while True:
-            now = time.time()
-            if now > (last_psync + _peer_psync_interval):
-                self.discover_peers()
-            
-            local = self.hostinfo.msgstore
-            remotes = []
-            for p in self.peers:
-                if p != self.hostinfo:
-                    r = p.msgstore
-                    remotes.append(r)
+            try:
+                now = time.time()
+                if now > (last_psync + _peer_psync_interval):
+                    self.discover_peers()
 
-            lhdr = local.get_headers()
-            logging.info('local got %d headers' % len(lhdr))
-            rlist = []
-            for r in remotes:
-                rhdr = r.get_headers()
-                logging.info('remote got %d headers' % len(rhdr))
-                rtmp = {}
-                rtmp['store'] = r
-                rtmp['hdrs'] = rhdr
-                rlist.append(rtmp)
+                local = self.hostinfo.msgstore
+                remotes = []
+                for p in self.peers:
+                    if p != self.hostinfo:
+                        r = p.msgstore
+                        remotes.append(r)
 
-            tpush = 0
-            for rl in rlist:
-                r = rl['store']
-                rhdr = rl['hdrs']
-                lbr_sort = lbr(lhdr, rhdr, reverse=True)
-                pushcount = 0
-                logging.info("local left = %d" % len(lbr_sort['left']))
-                for lm in lbr_sort['left']:
-                    if lm.m['expire'] > r.servertime:
-                        logging.debug('local pull async ' + lm.msgid())
-                        if local.get_message_async(lm,r.post_message):
-                            pushcount += 1
-                            if pushcount > self.maxpush:
-                                break
-                    else:
-                        logging.debug('ignoring local expiring ' + lm.msgid())
-                tpush += pushcount
-                pushcount = 0
-                logging.info("remote right = %d" % len(lbr_sort['right']))
-                for rm in lbr_sort['right']:
-                    if rm.m['expire'] > local.servertime:
-                        logging.debug('remote pull async ' + rm.msgid())
-                        if r.get_message_async(rm,local.post_message):
-                            pushcount += 1
-                            if pushcount > self.maxpush:
-                                break
-                    else:
-                        logging.debug('ignoring remote expiring ' + lm.msgid())
-                tpush += pushcount
+                lhdr = local.get_headers()
+                logging.info('local got %d headers' % len(lhdr))
+                rlist = []
+                for r in remotes:
+                    rhdr = r.get_headers()
+                    logging.info('remote got %d headers' % len(rhdr))
+                    rtmp = {}
+                    rtmp['store'] = r
+                    rtmp['hdrs'] = rhdr
+                    rlist.append(rtmp)
 
-            if tpush == 0:
-                time.sleep(_peer_msync_timeout)
+                tpush = 0
+                for rl in rlist:
+                    r = rl['store']
+                    rhdr = rl['hdrs']
+                    lbr_sort = lbr(lhdr, rhdr, reverse=True)
+                    pushcount = 0
+                    logging.info("local left = %d" % len(lbr_sort['left']))
+                    for lm in lbr_sort['left']:
+                        if lm.m['expire'] > r.servertime:
+                            logging.debug('local pull async ' + lm.msgid())
+                            if local.get_message_async(lm,r.post_message):
+                                pushcount += 1
+                                if pushcount > self.maxpush:
+                                    break
+                        else:
+                            logging.debug('ignoring local expiring ' + lm.msgid())
+                    tpush += pushcount
+                    pushcount = 0
+                    logging.info("remote right = %d" % len(lbr_sort['right']))
+                    for rm in lbr_sort['right']:
+                        if rm.m['expire'] > local.servertime:
+                            logging.debug('remote pull async ' + rm.msgid())
+                            if r.get_message_async(rm,local.post_message):
+                                pushcount += 1
+                                if pushcount > self.maxpush:
+                                    break
+                        else:
+                            logging.debug('ignoring remote expiring ' + lm.msgid())
+                    tpush += pushcount
+
+                if tpush == 0:
+                    time.sleep(_peer_msync_timeout)
+            except:
+                logging.exception('peer sync thread: uncaught exception')
 
                     
