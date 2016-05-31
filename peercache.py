@@ -5,6 +5,8 @@ import time
 import os
 from tornado.httpclient import HTTPClient, HTTPRequest
 from lbr import lbr
+from msgstoreclient import MsgStore
+import ctcoin.rpc
 
 from ecpy.curves import curve_secp256k1
 from ecpy.point import Point
@@ -21,10 +23,18 @@ _statusPath = 'api/status/'
 _peerListPath = 'api/peer/list/'
 _peerUpdatePath = 'api/peer/update/'
 
+_peer_msync_timeout = 30
+_peer_psync_interval = (5*60)   # 5 minutes
+
 sclient = HTTPClient()
 
 seed_peers = ['ciphrtxt.com:5000', 
               'coopr8.com:5000']
+
+config = {}
+config['rpchost'] = '127.0.0.1'
+config['rpcport'] = 7765
+
 
 class PeerListItem (object):
     def __init__(self, host, port=_default_port):
@@ -95,6 +105,10 @@ class PeerHost(object):
         self.lastseen = 0
         self.fails = 0
         self.peerlist = []
+        self.msgstore = MsgStore(self._baseurl())
+        self.last_msgcount = 0
+        self.last_fetchtime = 0
+        self.score = 0.0
     
     def _baseurl(self):
         return 'http://' + self.host + ':' + str(self.port) + '/'
@@ -202,14 +216,30 @@ class PeerHost(object):
 
 class PeerCache (object):
     def __init__(self, host, port=_default_port, Pkey=None, coinhost=None, 
-                 coinport=_default_coin_port):
+                 coinport=_default_coin_port, rpchost=config['rpchost'],
+                 rpcport=config['rpcport'], rpcuser=None, rpcpass=None, standalone=False):
         self.max_age = _default_max_age
         self.peers = []
+        self.maxpush = 20
         self.hostinfo = PeerHost(host, port, Pkey, coinhost, coinport)
         for s in seed_peers:
             p = s.split(':')
             self.peers.append(PeerHost(p[0], int(p[1])))
             self.hostinfo.peerlist.append(PeerListItem(p[0], p[1]))
+        self.standalone = standalone
+        if self.standalone:
+            self.proxy = None
+        else:
+            rpcstr = ''
+            if rpcuser is not None and rpcpass is not None:
+                rpcstr = rpcuser + ':' + rpcpass + '@'
+            url = 'https://' + rpcstr + rpchost + ':' + str(rpcport) + '/'
+            self.proxy = ctcoin.rpc.Proxy(service_url=url, service_port=str(rpcport))
+            try:
+                current = self.proxy.getblockcount()
+            except:
+                raise ValueError('Cannot connect to RPC Host @ ' + url)
+        
 
     def refresh(self):
         now = int(time.time())
@@ -223,17 +253,25 @@ class PeerCache (object):
     def discover_peers(self):
         self.refresh()
         for p in self.peers:
+            print(self.hostinfo.peerlist)
             llist = self.hostinfo.sorted_peers()
             #print('llist = ' + str(llist))
             rlist = p.sorted_peers()
             #print('rlist = ' + str(rlist))
             lbr_lists = lbr(llist, rlist)
             for r in lbr_lists['right']:
-                n = PeerHost(r['host'], r['port'])
+                n = PeerHost(r.host, r.port)
                 if n.refresh():
-                    listentry = {'host': r['host'], 'port': r['port']}
+                    listentry = PeerListItem(r.host, r.port)
                     self.hostinfo.peerlist.append(listentry)
-                    self.peers.append[n]
+                    self.peers.append(n)
+                    nodeaddr = ''
+                    if n.coinhost is not None:
+                        nodeaddr = n.coinhost
+                        if n.coinport is not None:
+                            nodeaddr += ':' + str(n.coinport)
+                        if not self.standalone:
+                            self.proxy.addnode(nodeaddr)
             pli = self.hostinfo.peerlistitem()
             if pli not in rlist:
                 #print('uploading ' + str(pli))
@@ -257,5 +295,65 @@ class PeerCache (object):
         if n not in self.peers:
             self.peers.append(n)
             
-                    
+    
+    def peer_sync_thread(self):
+        last_psync = 0
+        last_msync = 0
+        
+        while True:
+            now = time.time()
+            if now > (last_psync + _peer_psync_interval):
+                self.discover_peers()
+            
+            local = self.hostinfo.msgstore
+            remotes = []
+            for p in self.peers:
+                if p != self.hostinfo:
+                    r = p.msgstore
+                    remotes.append(r)
+
+            lhdr = local.get_headers()
+            logging.info('local got %d headers' % len(lhdr))
+            rlist = []
+            for r in remotes:
+                rhdr = r.get_headers()
+                logging.info('remote got %d headers' % len(rhdr))
+                rtmp = {}
+                rtmp['store'] = r
+                rtmp['hdrs'] = rhdr
+                rlist.append(rtmp)
+
+            tpush = 0
+            for rl in rlist:
+                r = rl['store']
+                rhdr = rl['hdrs']
+                lbr_sort = lbr(lhdr, rhdr, reverse=True)
+                pushcount = 0
+                logging.info("local left = %d" % len(lbr_sort['left']))
+                for lm in lbr_sort['left']:
+                    if lm.m['expire'] > r.servertime:
+                        logging.debug('local pull async ' + lm.msgid())
+                        if local.get_message_async(lm,r.post_message):
+                            pushcount += 1
+                            if pushcount > self.maxpush:
+                                break
+                    else:
+                        logging.debug('ignoring local expiring ' + lm.msgid())
+                tpush += pushcount
+                pushcount = 0
+                logging.info("remote right = %d" % len(lbr_sort['right']))
+                for rm in lbr_sort['right']:
+                    if rm.m['expire'] > local.servertime:
+                        logging.debug('remote pull async ' + rm.msgid())
+                        if r.get_message_async(rm,local.post_message):
+                            pushcount += 1
+                            if pushcount > self.maxpush:
+                                break
+                    else:
+                        logging.debug('ignoring remote expiring ' + lm.msgid())
+                tpush += pushcount
+
+            if tpush == 0:
+                time.sleep(_peer_msync_timeout)
+
                     

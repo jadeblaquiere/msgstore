@@ -113,7 +113,6 @@ class MessageUploadHandler(tornado.web.RequestHandler):
         if seek is not None:
             logging.info ('dup detected')
             os.remove(recvpath)
-            self.write(l.metadata())
             self.set_status(400)
             return
         
@@ -169,6 +168,7 @@ class MessageDownloadHandler(tornado.web.RequestHandler):
         if m is None:
             self.set_status(404)
             self.finish()
+            return
         with m.get_file() as f:
             self.set_header('Content-Type','application/octet-stream' )
             while 1:
@@ -183,6 +183,7 @@ class MessageFindHandler(tornado.web.RequestHandler):
         if m is None:
             self.set_status(404)
             self.finish()
+            return
         self.write(m.metadata())
         self.finish()
 
@@ -353,6 +354,8 @@ def nak_sync_thread():
         ncache.sync()
 
 if __name__ == "__main__":
+    coinhost = None
+    coinport = None
     for opt in clopts:
         tornado.options.define(name=opt['name'], default=opt['default'])
     tornado.options.parse_command_line()
@@ -372,7 +375,9 @@ if __name__ == "__main__":
         if coinhost is None:
             coinhost = hname
         coinport = opts['coinport']
-    pcache = PeerCache(hname, opts['extport'])
+    rpcuser = opts['rpcuser']
+    rpcpass = opts['rpcpass']
+    pcache = PeerCache(hname, opts['extport'], coinhost=coinhost, coinport=coinport, standalone=(coinhost == None), rpcuser=rpcuser, rpcpass=rpcpass)
     if opts['nakpriv'] is not None:
         nak = NAK(privkey=int(opts['nakpriv'], 16))
         nakpubbin = unhexlify(nak.pubkey.compress())
@@ -381,5 +386,6 @@ if __name__ == "__main__":
     logging.info('scanning message inventory')
     mcache.scan_message_dir()
     logging.info('imported messages from filesystem')
+    threading.Thread(target=pcache.peer_sync_thread).start()
     application.listen(5000)
     tornado.ioloop.IOLoop.instance().start()
