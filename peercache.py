@@ -3,7 +3,7 @@ import json
 import logging
 import time
 import os
-from tornado.httpclient import HTTPClient, HTTPRequest
+from tornado.httpclient import HTTPClient, HTTPRequest, HTTPError
 from lbr import lbr
 from msgstoreclient import MsgStore
 import ctcoin.rpc
@@ -114,9 +114,14 @@ class PeerHost(object):
         return 'http://' + self.host + ':' + str(self.port) + '/'
 
     def refresh(self):
+        r = None
         rtime = time.time()
         req = HTTPRequest(self._baseurl() + _statusPath, method='GET', connect_timeout=30, request_timeout=60)
-        r = sclient.fetch(req)
+        try:
+            r = sclient.fetch(req)
+        except HTTPError:
+            self.fails += 1
+            return False
         if r.code != 200:
             self.fails += 1
             return False
@@ -129,7 +134,11 @@ class PeerHost(object):
             self.coinport = status['coinport']
         self.lastseen = rtime
         req = HTTPRequest(self._baseurl() + _peerListPath, method='GET', connect_timeout=30, request_timeout=60)
-        r = sclient.fetch(req)
+        try:
+            r = sclient.fetch(req)
+        except HTTPError:
+            self.fails += 1
+            return False
         if r.code != 200:
             self.fails += 1
             return False
@@ -248,12 +257,13 @@ class PeerCache (object):
             if p.lastseen < expired:
                 if not p.refresh():
                     if p.fails > _default_max_fails:
+                        logging.info('dropping peer ' + p.host)
                         self.peers.remove(p)
 
     def discover_peers(self):
         self.refresh()
         for p in self.peers:
-            print(self.hostinfo.peerlist)
+            #print(self.hostinfo.peerlist)
             llist = self.hostinfo.sorted_peers()
             #print('llist = ' + str(llist))
             rlist = p.sorted_peers()
@@ -277,10 +287,14 @@ class PeerCache (object):
                 #print('uploading ' + str(pli))
                 plijson = pli.dumpjson().encode('UTF-8')
                 #print('url = ' + self.hostinfo._baseurl() + _peerUpdatePath)
-                req = HTTPRequest(self.hostinfo._baseurl() + _peerUpdatePath, 
+                req = HTTPRequest(p._baseurl() + _peerUpdatePath, 
                                   method='POST', body=plijson,
                                   connect_timeout=30, request_timeout=60)
-                r = sclient.fetch(req)
+                try:
+                    r = sclient.fetch(req)
+                except HTTPError:
+                    p.fails += 1
+                    continue
         self.peers.sort()
     
     def list_peers(self):
