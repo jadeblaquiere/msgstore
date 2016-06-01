@@ -329,11 +329,11 @@ class PeerCache (object):
                         remotes.append(r)
 
                 lhdr = local.get_headers()
-                logging.info('local got %d headers' % len(lhdr))
+                logging.debug('local got %d headers' % len(lhdr))
                 rlist = []
                 for r in remotes:
                     rhdr = r.get_headers()
-                    logging.info('remote got %d headers' % len(rhdr))
+                    logging.debug('remote got %d headers' % len(rhdr))
                     rtmp = {}
                     rtmp['store'] = r
                     rtmp['hdrs'] = rhdr
@@ -345,7 +345,7 @@ class PeerCache (object):
                     rhdr = rl['hdrs']
                     lbr_sort = lbr(lhdr, rhdr, reverse=True)
                     pushcount = 0
-                    logging.info("local left = %d" % len(lbr_sort['left']))
+                    logging.debug("local left = %d" % len(lbr_sort['left']))
                     for lm in lbr_sort['left']:
                         if lm.m['expire'] > r.servertime:
                             logging.debug('local pull async ' + lm.msgid())
@@ -357,7 +357,7 @@ class PeerCache (object):
                             logging.debug('ignoring local expiring ' + lm.msgid())
                     tpush += pushcount
                     pushcount = 0
-                    logging.info("remote right = %d" % len(lbr_sort['right']))
+                    logging.debug("remote right = %d" % len(lbr_sort['right']))
                     for rm in lbr_sort['right']:
                         if rm.m['expire'] > local.servertime:
                             logging.debug('remote pull async ' + rm.msgid())

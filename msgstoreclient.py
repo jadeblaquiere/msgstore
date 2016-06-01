@@ -45,7 +45,7 @@ class MsgStore (object):
             delay = now - self.last_sync
             if (now - self.last_sync) < _cache_expire_time:
                 return True
-        print('request headers from ' + self.baseurl)
+        #print('request headers from ' + self.baseurl)
         r = requests.get(self.baseurl + _server_time)
         if r.status_code != 200:
             return False
@@ -53,7 +53,7 @@ class MsgStore (object):
         for h in self.headers:
             if servertime > h.m['expire']:
                 self._insert_lock.acquire()
-                print('expiring ' + h.msgid())
+                #print('expiring ' + h.msgid())
                 self.headers.remove(h)
                 self._insert_lock.release()
         self.last_sync = time.time()
@@ -105,7 +105,7 @@ class MsgStore (object):
         if cb is None:
             return None
         if r.status_code != 200:
-            print('Error ' + str(r.status_code) + ' ' + r.url)
+            print('Async Reply Error ' + str(r.status_code) + ' ' + r.url)
             return cb(None)
         msg = message.Message()
         if msg.import_message(r.text):

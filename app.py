@@ -199,7 +199,7 @@ class PeerUpdateHandler(tornado.web.RequestHandler):
             b = self.request.body
             d = json.loads(b.decode('UTF-8'))
             if d['host'].lower() != 'localhost':
-                logging.info('adding potential peer ' + d['host'])
+                logging.info('adding candidate peer ' + d['host'])
                 pcache.add_peer(d['host'], d['port'])
             self.finish()
         except:
