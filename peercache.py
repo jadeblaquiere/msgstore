@@ -24,7 +24,7 @@ _peerListPath = 'api/peer/list/'
 _peerUpdatePath = 'api/peer/update/'
 
 _peer_msync_timeout = 30
-_peer_psync_interval = (5*60)   # 5 minutes
+_peer_psync_interval = (2*60)   # 2 minutes
 
 sclient = HTTPClient()
 
@@ -120,7 +120,7 @@ class PeerHost(object):
         req = HTTPRequest(self._baseurl() + _statusPath, method='GET', connect_timeout=30, request_timeout=60)
         try:
             r = sclient.fetch(req)
-        except HTTPError:
+        except (HTTPError, ConnectionRefusedError) :
             self.fails += 1
             return False
         if r.code != 200:
@@ -137,7 +137,7 @@ class PeerHost(object):
         req = HTTPRequest(self._baseurl() + _peerListPath, method='GET', connect_timeout=30, request_timeout=60)
         try:
             r = sclient.fetch(req)
-        except HTTPError:
+        except (HTTPError, ConnectionRefusedError) :
             self.fails += 1
             return False
         if r.code != 200:
@@ -150,6 +150,7 @@ class PeerHost(object):
             if n is not None:
                 self.peerlist.append(n)
         self.peerlist.sort()
+        self.fails = 0
         return True
 
     def dumpjson(self):
@@ -255,11 +256,11 @@ class PeerCache (object):
         now = int(time.time())
         expired = now - self.max_age
         for p in self.peers:
-            if p.lastseen < expired:
-                if not p.refresh():
-                    if p.fails > _default_max_fails:
-                        logging.info('dropping peer ' + p.host)
-                        self.peers.remove(p)
+            logging.info('refresh peer ' + p.host + ': fails = ' + str(p.fails))
+            p.refresh()
+            if p.lastseen < expired or p.fails > _default_max_fails:
+                logging.info('dropping peer ' + p.host)
+                self.peers.remove(p)
 
     def discover_peers(self):
         self.refresh()
@@ -320,6 +321,7 @@ class PeerCache (object):
                 now = time.time()
                 if now > (last_psync + _peer_psync_interval):
                     self.discover_peers()
+                    last_psync = now
 
                 local = self.hostinfo.msgstore
                 remotes = []

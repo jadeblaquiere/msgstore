@@ -8,6 +8,7 @@ import message
 import requests
 import requests_futures
 from requests_futures.sessions import FuturesSession
+from requests.exceptions import Timeout, ConnectionError, HTTPError
 import time
 import json
 import io
@@ -23,6 +24,8 @@ _upload_message = 'api/message/upload/'
 _cache_expire_time = 5 # seconds
 _high_water = 50
 _low_water = 20
+
+_default_timeout = 10 # seconds
 
 class MsgStore (object):
     """Client library for message store server"""
@@ -46,7 +49,11 @@ class MsgStore (object):
             if (now - self.last_sync) < _cache_expire_time:
                 return True
         #print('request headers from ' + self.baseurl)
-        r = requests.get(self.baseurl + _server_time)
+        r = None
+        try:
+            r = requests.get(self.baseurl + _server_time, timeout = _default_timeout)
+        except (Timeout, ConnectionError, HTTPError):
+            return False
         if r.status_code != 200:
             return False
         servertime = json.loads(r.text)['time']
@@ -57,7 +64,10 @@ class MsgStore (object):
                 self.headers.remove(h)
                 self._insert_lock.release()
         self.last_sync = time.time()
-        r = self.session.get(self.baseurl + _headers_since + str(self.servertime))
+        try:
+            r = self.session.get(self.baseurl + _headers_since + str(self.servertime))
+        except (Timeout, ConnectionError, HTTPError):
+            return False
         if r.status_code != 200:
             return False
         self.servertime = servertime
@@ -84,7 +94,11 @@ class MsgStore (object):
         self._sync_headers()
         if hdr not in self.headers:
             return None
-        r = self.session.get(self.baseurl + _download_message + hdr.msgid(), stream=True)
+        r = None
+        try:
+            r = self.session.get(self.baseurl + _download_message + hdr.msgid(), stream=True)
+        except (Timeout, ConnectionError, HTTPError):
+            return None
         if r.status_code != 200:
             return None
         raw = ''
