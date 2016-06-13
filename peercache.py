@@ -283,7 +283,7 @@ class PeerCache (object):
                 if n.refresh():
                     listentry = PeerListItem(r.host, r.port)
                     self.hostinfo.add_peer(listentry)
-                    self.add_peer(n)
+                    self.add_peer(r.host, r.port)
                     nodeaddr = ''
                     if n.coinhost is not None:
                         nodeaddr = n.coinhost
