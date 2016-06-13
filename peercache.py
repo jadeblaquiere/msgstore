@@ -148,7 +148,7 @@ class PeerHost(object):
         for r in rlist:
             n = PeerListItem.loaddict(r)
             if n is not None:
-                self.peerlist.append(n)
+                self.add_peer(n)
         self.peerlist.sort()
         self.fails = 0
         return True
@@ -197,6 +197,13 @@ class PeerHost(object):
     def sorted_peers(self):
         self.peerlist.sort()
         return self.peerlist
+    
+    def add_peer(self, n):
+        for p in self.peerlist:
+            if p == n:
+                break
+        else:
+            self.peerlist.append(n)
 
     def __str__(self):
         return str(self.dumpjson())
@@ -275,8 +282,8 @@ class PeerCache (object):
                 n = PeerHost(r.host, r.port)
                 if n.refresh():
                     listentry = PeerListItem(r.host, r.port)
-                    self.hostinfo.peerlist.append(listentry)
-                    self.peers.append(n)
+                    self.hostinfo.add_peer(listentry)
+                    self.add_peer(n)
                     nodeaddr = ''
                     if n.coinhost is not None:
                         nodeaddr = n.coinhost
@@ -308,7 +315,10 @@ class PeerCache (object):
 
     def add_peer(self, host, port=_default_port):
         n = PeerHost(host, port)
-        if n not in self.peers:
+        for p in self.peers:
+            if n == p:
+                break
+        else:
             self.peers.append(n)
             
     
