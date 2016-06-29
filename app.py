@@ -158,7 +158,7 @@ class StatusHandler(tornado.web.RequestHandler):
         storage["max_file_size"] = config["max_file_size"]
         storage['messages'] = mcache.messagecount
         status["storage"] = storage
-        status["pubkey"] = server_P.compress()
+        status["pubkey"] = server_P.compress().decode()
         self.write(status)
 
 class MessageDownloadHandler(tornado.web.RequestHandler):
