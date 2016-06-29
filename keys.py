@@ -18,7 +18,7 @@ _C = curves.curve_secp256k1
 _masksize = min(32, _C['bits'])
 _maskbits = (int((_masksize / 3) + 0))
 
-_G_Pt = point.Generator(_C['G'][0], _C['G'][1])
+_G_Pt = point.Generator.init(_C['G'][0], _C['G'][1])
 
 # parameters for time based keys, median = 24h, sd = 4h, min 12h, max 36h
 _tstarget = (60 * 60 * 24)

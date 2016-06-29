@@ -14,7 +14,7 @@ from Crypto.Cipher import AES
 from Crypto.Util import Counter
 
 Point.set_curve(curve_secp256k1)
-_G = Generator(curve_secp256k1['G'][0], curve_secp256k1['G'][1])
+_G = Generator.init(curve_secp256k1['G'][0], curve_secp256k1['G'][1])
 ECDSA.set_generator(_G)
 
 client_p = random.randint(1,curve_secp256k1['n']-1)

@@ -32,7 +32,7 @@ from Crypto.Util import Counter
 
 _curve = curve_secp256k1
 Point.set_curve(_curve)
-_G = Generator(_curve['G'][0], _curve['G'][1])
+_G = Generator.init(_curve['G'][0], _curve['G'][1])
 ECDSA.set_generator(_G)
 
 server_p = random.randint(1,curve_secp256k1['n']-1)
@@ -158,7 +158,7 @@ class StatusHandler(tornado.web.RequestHandler):
         storage["max_file_size"] = config["max_file_size"]
         storage['messages'] = mcache.messagecount
         status["storage"] = storage
-        status["pubkey"] = server_P.compress()
+        status["pubkey"] = server_P.compress().decode()
         self.write(status)
 
 class MessageDownloadHandler(tornado.web.RequestHandler):

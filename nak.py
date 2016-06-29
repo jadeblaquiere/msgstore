@@ -11,11 +11,11 @@ from ecpy.ecdsa import ECDSA
 _def_curve = curve_secp256k1
 Point.set_curve(_def_curve)
 ECDSA.set_curve(_def_curve)
-ECDSA.set_generator(Point(_def_curve['G'][0], _def_curve['G'][1]))
+ECDSA.set_generator(Generator.init(_def_curve['G'][0], _def_curve['G'][1]))
 
 class NAK(object):
     n = _def_curve['n']
-    G = Point(_def_curve['G'][0], _def_curve['G'][1])
+    G = Generator.init(_def_curve['G'][0], _def_curve['G'][1])
     ecdsa = ECDSA()
     
     def __init__(self, expire=None, pubkey=None, signature=None, privkey=None):
