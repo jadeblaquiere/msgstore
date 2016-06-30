@@ -25,6 +25,7 @@ pip3 install git+https://github.com/jadeblaquiere/python-ctcoinlib.git
 ```
 1. create the messages and recv directories
 ```
+cd msgstore
 mkdir messages
 mkdir recv
 ```
