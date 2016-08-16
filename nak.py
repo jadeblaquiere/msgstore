@@ -97,7 +97,7 @@ class NAK(object):
             serialized = self.serialize()
             if serialized is None:
                 return None
-        exp['pubkey'] = self.pubkey.compress()
+        exp['pubkey'] = self.pubkey.compress().decode()
         exp['expire'] = self.expire
         exp['signature'] = self.signature
         return json.dumps(exp)
