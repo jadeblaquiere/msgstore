@@ -28,7 +28,7 @@
 import ctcoin.rpc
 import binascii
 from ctcoin.core.script import *
-from nak import NAK
+from ciphrtxt.nak import NAK
 import plyvel
 import json
 import logging

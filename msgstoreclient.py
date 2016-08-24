@@ -26,7 +26,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
-import message
+from ciphrtxt.message import MessageHeader, Message
 import requests
 import requests_futures
 from requests_futures.sessions import FuturesSession
@@ -98,7 +98,7 @@ class MsgStore (object):
                         key=lambda k: int(k[0:8],16), reverse=True)
         for rstr in reversed(remote):
             rhdr = message.MessageHeader()
-            if rhdr.import_header(rstr):
+            if rhdr._deserialize_header(rstr):
                 self._insert_lock.acquire()
                 if rhdr not in self.headers:
                     self.headers.insert(0, rhdr)
@@ -126,11 +126,8 @@ class MsgStore (object):
         raw = ''
         for chunk in r:
             raw += chunk
-        msg = message.Message()
-        if msg.import_message(raw):
-            return msg
-        else:
-            return None
+        msg = Message.deserialize(raw)
+        return msg
 
     def _cb_get_async(self, s, r):
         qen = [qe for qe in self._get_queue if qe[0] == r.url]
@@ -143,11 +140,8 @@ class MsgStore (object):
         if r.status_code != 200:
             print('Async Reply Error ' + str(r.status_code) + ' ' + r.url)
             return cb(None)
-        msg = message.Message()
-        if msg.import_message(r.text):
-            return cb(msg)
-        else:
-            return cb(None)
+        msg = Message.deserialize(r.text)
+        return cb(msg)
 
     def get_message_async(self,hdr,callback):
         self._sync_headers()
@@ -169,9 +163,8 @@ class MsgStore (object):
     def post_message(self, msg):
         if msg in self.headers:
             return
-        raw = msg.export_message()
-        nhdr = message.MessageHeader()
-        nhdr.import_header(raw)
+        raw = msg.serialize()
+        nhdr = MessageHeader.deserialize(raw)
         f = io.StringIO(raw)
         files = {'message': ('message', f)}
         r = self.session.post(self.baseurl + _upload_message, files=files)

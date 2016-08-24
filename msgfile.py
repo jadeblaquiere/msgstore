@@ -31,18 +31,16 @@ import mmap
 import os
 import shutil
 import json
+from ciphrtxt.message import MessageHeader, Message, _header_size_w_sig
+from ecpy.point import Point
 
 config = {}
-config['header_size'] = (8+1+8+1+66+1+66+1+66)
+config['header_size'] = _header_size_w_sig
 
-class Message(object):
+class MessageFile(Message):
     def __init__(self):
+        super(MessageFile, self).__init__()
         self.filepath = None
-        self.time = None
-        self.expire = None
-        self.I = None
-        self.J = None
-        self.K = None
         self.size = None
         self.time_str = None
        	self.expire_str = None
@@ -53,21 +51,16 @@ class Message(object):
         # validate header
         with open(filepath, "rb") as f:
             mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
-            header = mm[:config['header_size']].decode('UTF-8')
+            header = mm[:config['header_size']]
             mm.close()
-            hsplit = header.split(':')
-            if len(hsplit) != 5:
+            if not self._deserialize_header(header):
                 return False
-            if I:
-                if hsplit[2] != I:
-                    return False
+            hsplit = header.split(b':')
+            if len(hsplit) != 8:
+                return False
+            self.sig = (int(hsplit[6], 16), int(hsplit[7], 16))
             self.filepath = filepath
             self.size = os.path.getsize(filepath)
-            self.time = int(hsplit[0],16)
-            self.expire = int(hsplit[1],16)
-            self.I = hsplit[2]
-            self.J = hsplit[3]
-            self.K = hsplit[4]
             self.header = header
             self.time_str = time.asctime(time.gmtime(self.time))
             self.expire_str = time.asctime(time.gmtime(self.expire))
@@ -94,6 +87,7 @@ class Message(object):
         self.I = None
         self.J = None
         self.K = None
+        self.sig = None
         self.header = None
         self.size = None
         self.time_str = None
@@ -106,9 +100,10 @@ class Message(object):
         result = {}
         result["time"] = self.time
         result["expire"] = self.expire
-        result["I"] = self.I
-        result["J"] = self.J
-        result["K"] = self.K
+        result["I"] = self.I.compress().decode()
+        result["J"] = self.J.compress().decode()
+        result["K"] = self.K.compress().decode()
+        result["signature"] = self.sig
         result["size"] = self.size
         result["time_str"] = self.time_str
         result["expire_str"] = self.expire_str
@@ -122,31 +117,33 @@ class Message(object):
         result["filepath"] = self.filepath
         result["time"] = self.time
         result["expire"] = self.expire
-        result["I"] = self.I
-        result["J"] = self.J
-        result["K"] = self.K
+        result["I"] = self.I.compress().decode()
+        result["J"] = self.J.compress().decode()
+        result["K"] = self.K.compress().decode()
         result["size"] = self.size
         result["time_str"] = self.time_str
         result["expire_str"] = self.expire_str
         result["servertime"] = self.servertime
-        result["header"] = self.header
+        result["signature"] = self.sig
+        result["header"] = self.header.decode()
         return json.dumps(result)
 
     @staticmethod
     def loadjson(msgjson):
         try:
             mdict = json.loads(msgjson)
-            mnew = Message()
+            mnew = MessageFile()
             mnew.filepath = mdict['filepath']
             mnew.time = mdict['time']
             mnew.expire = mdict['expire']
-            mnew.I = mdict['I']
-            mnew.J = mdict['J']
-            mnew.K = mdict['K']
+            mnew.I = Point.decompress(mdict['I'])
+            mnew.J = Point.decompress(mdict['J'])
+            mnew.K = Point.decompress(mdict['K'])
             mnew.size = mdict['size']
             mnew.time_str = mdict['time_str']
             mnew.expire_str = mdict['expire_str']
             mnew.servertime = mdict['servertime']
+            mnew.sig = mdict['signature']
             mnew.header = mdict['header']
             return mnew
         except:

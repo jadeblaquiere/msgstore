@@ -41,7 +41,7 @@ from ecpy.point import Point
 _curve = curve_secp256k1
 Point.set_curve(_curve)
 
-_default_port=5000
+_default_port=7754
 _default_coin_port=7764
 _default_max_age=(4*60*60)    # 4 hours
 _default_max_fails=1
@@ -55,8 +55,8 @@ _peer_psync_interval = (2*60)   # 2 minutes
 
 sclient = HTTPClient()
 
-seed_peers = ['ciphrtxt.com:5000', 
-              'coopr8.com:5000']
+seed_peers = ['ciphrtxt.com:7754', 
+              'coopr8.com:7754']
 
 config = {}
 config['rpchost'] = '127.0.0.1'
@@ -147,7 +147,7 @@ class PeerHost(object):
         req = HTTPRequest(self._baseurl() + _statusPath, method='GET', connect_timeout=30, request_timeout=60)
         try:
             r = sclient.fetch(req)
-        except (HTTPError, ConnectionRefusedError) :
+        except (HTTPError, ConnectionRefusedError, TimeoutError) :
             self.fails += 1
             return False
         if r.code != 200:
@@ -164,7 +164,7 @@ class PeerHost(object):
         req = HTTPRequest(self._baseurl() + _peerListPath, method='GET', connect_timeout=30, request_timeout=60)
         try:
             r = sclient.fetch(req)
-        except (HTTPError, ConnectionRefusedError) :
+        except (HTTPError, ConnectionRefusedError, TimeoutError) :
             self.fails += 1
             return False
         if r.code != 200:
@@ -328,7 +328,7 @@ class PeerCache (object):
                                   connect_timeout=30, request_timeout=60)
                 try:
                     r = sclient.fetch(req)
-                except HTTPError:
+                except (HTTPError, TimeoutError):
                     p.fails += 1
                     continue
         self.peers.sort()
