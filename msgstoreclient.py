@@ -112,7 +112,7 @@ class MsgStore (object):
         self._sync_headers()
         return self.headers
 
-    def get_message(self,hdr):
+    def get_message(self, hdr, callback=None):
         self._sync_headers()
         if hdr not in self.headers:
             return None
@@ -123,10 +123,12 @@ class MsgStore (object):
             return None
         if r.status_code != 200:
             return None
-        raw = ''
+        raw = b''
         for chunk in r:
             raw += chunk
         msg = Message.deserialize(raw)
+        if callback:
+            return callback(msg)
         return msg
 
     def _cb_get_async(self, s, r):
@@ -140,10 +142,10 @@ class MsgStore (object):
         if r.status_code != 200:
             print('Async Reply Error ' + str(r.status_code) + ' ' + r.url)
             return cb(None)
-        msg = Message.deserialize(r.text)
+        msg = Message.deserialize(r.text.encode())
         return cb(msg)
 
-    def get_message_async(self,hdr,callback):
+    def get_message_async(self, hdr, callback):
         self._sync_headers()
         if hdr not in self.headers:
             return False
@@ -165,13 +167,17 @@ class MsgStore (object):
             return
         raw = msg.serialize()
         nhdr = MessageHeader.deserialize(raw)
-        f = io.StringIO(raw)
+        f = io.StringIO(raw.decode())
         files = {'message': ('message', f)}
-        r = self.session.post(self.baseurl + _upload_message, files=files)
+        try:
+            r = self.session.post(self.baseurl + _upload_message, files=files)
+        except (Timeout, ConnectionError, HTTPError):
+            return
         if r.status_code != 200:
             return
         self._insert_lock.acquire()
-        self.headers.insert(0,nhdr)
+        if nhdr not in self.headers:
+            self.headers.insert(0,nhdr)
         self._insert_lock.release()
         self.cache_dirty = True
 

@@ -290,11 +290,17 @@ class PeerCache (object):
         now = int(time.time())
         expired = now - self.max_age
         for p in self.peers:
+            logging.debug('refresh candidate peer ' + p.host + ': fails = ' + str(p.fails))
+        drop_list = []
+        for p in self.peers:
             logging.info('refresh peer ' + p.host + ': fails = ' + str(p.fails))
             p.refresh()
             if p.lastseen < expired or p.fails > _default_max_fails:
-                logging.info('dropping peer ' + p.host)
-                self.peers.remove(p)
+                logging.debug('tagging peer for drop ' + p.host)
+                drop_list.append(p)
+        for p in drop_list:
+            logging.info('dropping peer ' + p.host)
+            self.peers.remove(p)
 
     def discover_peers(self):
         self.refresh()
