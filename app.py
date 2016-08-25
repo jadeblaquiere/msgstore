@@ -122,7 +122,7 @@ class MessageUploadHandler(tornado.web.RequestHandler):
         #print('filereq =', filereq)
         #print('filedata =', str(filedata))
         recvpath = config['receive_dir'] + str(int(time.time() * 1000))
-        logging.info('receiving file as ' + recvpath )
+        logging.debug('receiving file as ' + recvpath )
         fh = open(recvpath, 'wb')
         fh.write(filedata['body'])
         fh.close()
@@ -137,6 +137,7 @@ class MessageUploadHandler(tornado.web.RequestHandler):
         J = header.split(':')[4]
         K = header.split(':')[5]
 
+        logging.debug('received message ' + I )
         seek = mcache.get(I)
         if seek is not None:
             logging.info ('dup detected')
@@ -191,7 +192,7 @@ class StatusHandler(tornado.web.RequestHandler):
 
 class MessageDownloadHandler(tornado.web.RequestHandler):
     def get(self, msg_id=None):
-        logging.info('download hash ' + str(msg_id))
+        logging.debug('download hash ' + str(msg_id))
         m = mcache.get(msg_id)
         if m is None:
             self.set_status(404)
