@@ -80,9 +80,9 @@ class MsgStore (object):
             return False
         servertime = json.loads(r.text)['time']
         for h in self.headers:
-            if servertime > h.m['expire']:
+            if servertime > h.expire:
                 self._insert_lock.acquire()
-                #print('expiring ' + h.msgid())
+                #print('expiring ' + h.I.compress().decode())
                 self.headers.remove(h)
                 self._insert_lock.release()
         self.last_sync = time.time()
@@ -95,10 +95,10 @@ class MsgStore (object):
         self.servertime = servertime
         self.cache_dirty = False
         remote = sorted(json.loads(r.text)['header_list'],
-                        key=lambda k: int(k[0:8],16), reverse=True)
+                        key=lambda k: int(k[6:14],16), reverse=True)
         for rstr in reversed(remote):
-            rhdr = message.MessageHeader()
-            if rhdr._deserialize_header(rstr):
+            rhdr = MessageHeader()
+            if rhdr._deserialize_header(rstr.encode()):
                 self._insert_lock.acquire()
                 if rhdr not in self.headers:
                     self.headers.insert(0, rhdr)
@@ -118,7 +118,7 @@ class MsgStore (object):
             return None
         r = None
         try:
-            r = self.session.get(self.baseurl + _download_message + hdr.msgid(), stream=True)
+            r = self.session.get(self.baseurl + _download_message + hdr.I.compress().decode(), stream=True)
         except (Timeout, ConnectionError, HTTPError):
             return None
         if r.status_code != 200:
@@ -147,7 +147,7 @@ class MsgStore (object):
         self._sync_headers()
         if hdr not in self.headers:
             return False
-        url = self.baseurl + _download_message + hdr.msgid()
+        url = self.baseurl + _download_message + hdr.I.compress().decode()
         qentry = (url, callback)
         if qentry in self._get_queue:
             return False
