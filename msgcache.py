@@ -32,7 +32,7 @@ import logging
 import time
 import os
 
-from msgfile import Message
+from msgfile import MessageFile
 
 config = {}
 config['dbdir'] = 'msgdb/'
@@ -52,7 +52,7 @@ class MessageCache(object):
             meta = self.db.get(unhexlify(I))
             if meta is None:
                 filepath = config['message_dir'] + '/' + fname
-                msg = Message()
+                msg = MessageFile()
                 if msg.ingest(filepath):
                     if msg.expire > now:
                         #logging.info('adding ' + fname)
@@ -150,10 +150,10 @@ class MessageCache(object):
         mjson = self.db.get(unhexlify(I))
         if mjson is None:
             return None
-        return Message.loadjson(mjson.decode('UTF-8'))
+        return MessageFile.loadjson(mjson.decode('UTF-8'))
 
     def add(self,msg):
         val = msg.dumpjson()
         if val is not None:
-            self.db.put(unhexlify(msg.I), val.encode('UTF-8'))
+            self.db.put(unhexlify(msg.I.compress().decode()), val.encode('UTF-8'))
 

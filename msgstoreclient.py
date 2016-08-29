@@ -26,7 +26,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
-import message
+from ciphrtxt.message import MessageHeader, Message
 import requests
 import requests_futures
 from requests_futures.sessions import FuturesSession
@@ -80,9 +80,9 @@ class MsgStore (object):
             return False
         servertime = json.loads(r.text)['time']
         for h in self.headers:
-            if servertime > h.m['expire']:
+            if servertime > h.expire:
                 self._insert_lock.acquire()
-                #print('expiring ' + h.msgid())
+                #print('expiring ' + h.I.compress().decode())
                 self.headers.remove(h)
                 self._insert_lock.release()
         self.last_sync = time.time()
@@ -95,10 +95,10 @@ class MsgStore (object):
         self.servertime = servertime
         self.cache_dirty = False
         remote = sorted(json.loads(r.text)['header_list'],
-                        key=lambda k: int(k[0:8],16), reverse=True)
+                        key=lambda k: int(k[6:14],16), reverse=True)
         for rstr in reversed(remote):
-            rhdr = message.MessageHeader()
-            if rhdr.import_header(rstr):
+            rhdr = MessageHeader()
+            if rhdr._deserialize_header(rstr.encode()):
                 self._insert_lock.acquire()
                 if rhdr not in self.headers:
                     self.headers.insert(0, rhdr)
@@ -112,25 +112,24 @@ class MsgStore (object):
         self._sync_headers()
         return self.headers
 
-    def get_message(self,hdr):
+    def get_message(self, hdr, callback=None):
         self._sync_headers()
         if hdr not in self.headers:
             return None
         r = None
         try:
-            r = self.session.get(self.baseurl + _download_message + hdr.msgid(), stream=True)
+            r = self.session.get(self.baseurl + _download_message + hdr.I.compress().decode(), stream=True)
         except (Timeout, ConnectionError, HTTPError):
             return None
         if r.status_code != 200:
             return None
-        raw = ''
+        raw = b''
         for chunk in r:
             raw += chunk
-        msg = message.Message()
-        if msg.import_message(raw):
-            return msg
-        else:
-            return None
+        msg = Message.deserialize(raw)
+        if callback:
+            return callback(msg)
+        return msg
 
     def _cb_get_async(self, s, r):
         qen = [qe for qe in self._get_queue if qe[0] == r.url]
@@ -143,17 +142,14 @@ class MsgStore (object):
         if r.status_code != 200:
             print('Async Reply Error ' + str(r.status_code) + ' ' + r.url)
             return cb(None)
-        msg = message.Message()
-        if msg.import_message(r.text):
-            return cb(msg)
-        else:
-            return cb(None)
+        msg = Message.deserialize(r.text.encode())
+        return cb(msg)
 
-    def get_message_async(self,hdr,callback):
+    def get_message_async(self, hdr, callback):
         self._sync_headers()
         if hdr not in self.headers:
             return False
-        url = self.baseurl + _download_message + hdr.msgid()
+        url = self.baseurl + _download_message + hdr.I.compress().decode()
         qentry = (url, callback)
         if qentry in self._get_queue:
             return False
@@ -169,16 +165,19 @@ class MsgStore (object):
     def post_message(self, msg):
         if msg in self.headers:
             return
-        raw = msg.export_message()
-        nhdr = message.MessageHeader()
-        nhdr.import_header(raw)
-        f = io.StringIO(raw)
+        raw = msg.serialize()
+        nhdr = MessageHeader.deserialize(raw)
+        f = io.StringIO(raw.decode())
         files = {'message': ('message', f)}
-        r = self.session.post(self.baseurl + _upload_message, files=files)
+        try:
+            r = self.session.post(self.baseurl + _upload_message, files=files)
+        except (Timeout, ConnectionError, HTTPError):
+            return
         if r.status_code != 200:
             return
         self._insert_lock.acquire()
-        self.headers.insert(0,nhdr)
+        if nhdr not in self.headers:
+            self.headers.insert(0,nhdr)
         self._insert_lock.release()
         self.cache_dirty = True
 

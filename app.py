@@ -38,9 +38,9 @@ import mmap
 import threading
 import socket
 
-from msgfile import Message
+from msgfile import MessageFile
 from nakcache import NAKCache
-from nak import NAK
+from ciphrtxt.nak import NAK
 
 from msgcache import MessageCache
 from peercache import PeerCache
@@ -81,8 +81,8 @@ clopts.append({'name':'rpchost', 'default':'127.0.0.1'})
 clopts.append({'name':'rpcport', 'default':7765})
 clopts.append({'name':'nakpriv', 'default': None})
 clopts.append({'name':'exthost', 'default': None})
-clopts.append({'name':'extport', 'default': 5000})
-clopts.append({'name':'listenport', 'default': 5000})
+clopts.append({'name':'extport', 'default': 7754})
+clopts.append({'name':'listenport', 'default': 7754})
 clopts.append({'name':'coinhost', 'default': None})
 clopts.append({'name':'coinport', 'default': 7764})
 clopts.append({'name':'standalone', 'default': False})
@@ -122,7 +122,7 @@ class MessageUploadHandler(tornado.web.RequestHandler):
         #print('filereq =', filereq)
         #print('filedata =', str(filedata))
         recvpath = config['receive_dir'] + str(int(time.time() * 1000))
-        logging.info('receiving file as ' + recvpath )
+        logging.debug('receiving file as ' + recvpath )
         fh = open(recvpath, 'wb')
         fh.write(filedata['body'])
         fh.close()
@@ -131,12 +131,13 @@ class MessageUploadHandler(tornado.web.RequestHandler):
             mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
             header = mm[:config['header_size']].decode('UTF-8')
             mm.close()
-        t = header.split(':')[0]
-        e = header.split(':')[1]
-        I = header.split(':')[2]
-        J = header.split(':')[3]
-        K = header.split(':')[4]
+        t = header.split(':')[1]
+        e = header.split(':')[2]
+        I = header.split(':')[3]
+        J = header.split(':')[4]
+        K = header.split(':')[5]
 
+        logging.debug('received message ' + I )
         seek = mcache.get(I)
         if seek is not None:
             logging.info ('dup detected')
@@ -144,7 +145,7 @@ class MessageUploadHandler(tornado.web.RequestHandler):
             self.set_status(400)
             return
         
-        m = Message()
+        m = MessageFile()
         if m.ingest(recvpath,I) != True :
             logging.info('ingest failed for message ' + I)
             os.remove(recvpath)
@@ -191,7 +192,7 @@ class StatusHandler(tornado.web.RequestHandler):
 
 class MessageDownloadHandler(tornado.web.RequestHandler):
     def get(self, msg_id=None):
-        logging.info('download hash ' + str(msg_id))
+        logging.debug('download hash ' + str(msg_id))
         m = mcache.get(msg_id)
         if m is None:
             self.set_status(404)
@@ -311,7 +312,7 @@ class OnionHandler(tornado.web.RequestHandler):
         
         if o_r['local'] is True:
             if o_r['action'].lower() == 'get':
-                o_server = 'http://127.0.0.1:5000/'
+                o_server = 'http://127.0.0.1:' + str(opts['listenport']) + '/'
                 o_path = o_r['url']
                 self.client_R = Point.decompress(o_r['replykey'])
                 req = tornado.httpclient.HTTPRequest(o_server+o_path,
@@ -320,7 +321,7 @@ class OnionHandler(tornado.web.RequestHandler):
                                                      request_timeout=60)
                 onion_client.fetch(req, self.callback_encrypt)
             elif o_r['action'].lower() == 'post':
-                o_server = 'http://127.0.0.1:5000/'
+                o_server = 'http://127.0.0.1:' + str(opts['listenport']) + '/'
                 o_path = o_r['url']
                 self.client_R = Point.decompress(o_r['replykey'])
                 req = tornado.httpclient.HTTPRequest(o_server+o_path,
@@ -342,7 +343,7 @@ class OnionHandler(tornado.web.RequestHandler):
             except:
                 self.set_status(400)
                 self.finish()
-            o_server = 'http://' + o_r['host'] + ':5000/'
+            o_server = 'http://' + o_r['host'] + ':' + str(o_r['port']) + '/'
             o_path = 'onion/' + o_r['pubkey']
             o_raw = base64.b64decode(o_r['body'])
             sig = nak.sign(o_raw)

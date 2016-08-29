@@ -41,7 +41,7 @@ from ecpy.point import Point
 _curve = curve_secp256k1
 Point.set_curve(_curve)
 
-_default_port=5000
+_default_port=7754
 _default_coin_port=7764
 _default_max_age=(4*60*60)    # 4 hours
 _default_max_fails=1
@@ -55,8 +55,8 @@ _peer_psync_interval = (2*60)   # 2 minutes
 
 sclient = HTTPClient()
 
-seed_peers = ['ciphrtxt.com:5000', 
-              'coopr8.com:5000']
+seed_peers = ['ciphrtxt.com:7754', 
+              'coopr8.com:7754']
 
 config = {}
 config['rpchost'] = '127.0.0.1'
@@ -147,7 +147,7 @@ class PeerHost(object):
         req = HTTPRequest(self._baseurl() + _statusPath, method='GET', connect_timeout=30, request_timeout=60)
         try:
             r = sclient.fetch(req)
-        except (HTTPError, ConnectionRefusedError) :
+        except (HTTPError, ConnectionRefusedError, TimeoutError) :
             self.fails += 1
             return False
         if r.code != 200:
@@ -164,7 +164,7 @@ class PeerHost(object):
         req = HTTPRequest(self._baseurl() + _peerListPath, method='GET', connect_timeout=30, request_timeout=60)
         try:
             r = sclient.fetch(req)
-        except (HTTPError, ConnectionRefusedError) :
+        except (HTTPError, ConnectionRefusedError, TimeoutError) :
             self.fails += 1
             return False
         if r.code != 200:
@@ -290,11 +290,17 @@ class PeerCache (object):
         now = int(time.time())
         expired = now - self.max_age
         for p in self.peers:
+            logging.debug('refresh candidate peer ' + p.host + ': fails = ' + str(p.fails))
+        drop_list = []
+        for p in self.peers:
             logging.info('refresh peer ' + p.host + ': fails = ' + str(p.fails))
             p.refresh()
             if p.lastseen < expired or p.fails > _default_max_fails:
-                logging.info('dropping peer ' + p.host)
-                self.peers.remove(p)
+                logging.debug('tagging peer for drop ' + p.host)
+                drop_list.append(p)
+        for p in drop_list:
+            logging.info('dropping peer ' + p.host)
+            self.peers.remove(p)
 
     def discover_peers(self):
         self.refresh()
@@ -328,7 +334,7 @@ class PeerCache (object):
                                   connect_timeout=30, request_timeout=60)
                 try:
                     r = sclient.fetch(req)
-                except HTTPError:
+                except (HTTPError, TimeoutError):
                     p.fails += 1
                     continue
         self.peers.sort()
@@ -372,7 +378,7 @@ class PeerCache (object):
                 rlist = []
                 for r in remotes:
                     rhdr = r.get_headers()
-                    logging.debug('remote got %d headers' % len(rhdr))
+                    logging.debug('remote (%s) got %d headers' % (r.baseurl, len(rhdr)))
                     rtmp = {}
                     rtmp['store'] = r
                     rtmp['hdrs'] = rhdr
@@ -386,8 +392,8 @@ class PeerCache (object):
                     pushcount = 0
                     logging.debug("local left = %d" % len(lbr_sort['left']))
                     for lm in lbr_sort['left']:
-                        if lm.m['expire'] > r.servertime:
-                            logging.debug('local pull async ' + lm.msgid())
+                        if lm.expire > r.servertime:
+                            logging.debug('local pull async ' + lm.I.compress().decode())
                             if local.get_message_async(lm,r.post_message):
                                 pushcount += 1
                                 if pushcount > self.maxpush:
@@ -398,8 +404,8 @@ class PeerCache (object):
                     pushcount = 0
                     logging.debug("remote right = %d" % len(lbr_sort['right']))
                     for rm in lbr_sort['right']:
-                        if rm.m['expire'] > local.servertime:
-                            logging.debug('remote pull async ' + rm.msgid())
+                        if rm.expire > local.servertime:
+                            logging.debug('remote pull async ' + rm.I.compress().decode())
                             if r.get_message_async(rm,local.post_message):
                                 pushcount += 1
                                 if pushcount > self.maxpush:
