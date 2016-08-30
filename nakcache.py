@@ -38,6 +38,8 @@ config['rpchost'] = '127.0.0.1'
 config['rpcport'] = 7765
 config['minconf'] = 6
 config['dbdir'] = 'nakdb/'
+config['maxgap'] = 64
+config['paranoid'] = True
 
 _config_key = binascii.unhexlify('000000000000000000000000000000000000000000000000000000000000000000')
 
@@ -72,48 +74,66 @@ class NAKCache(object):
         if self.blockcount >= current - self.minconf:
             return False
         #print('sync from height %d to %d' % (self.blockcount, current-self.minconf))
-        for i in range(self.blockcount, current - self.minconf):
-            if (i & 0x3f) == 0:
-                logging.info('checkpointing NAK cache to block %d' % i)
-                self.status['blockcount'] = i
-                self.db.put(_config_key, json.dumps(self.status).encode('UTF-8'))
-            blockhash = self.proxy.getblockhash(i)
-            b = self.proxy.getblock(blockhash)
-            #print('processing block at height %d, %d txns' % (i, len(b.vtx)))
-            for j in range (0,len(b.vtx)):
-                tx = b.vtx[j]
-                #print('vout len = %d' % len(tx.vout))
-                for k in range(0,len(tx.vout)):
-                    out = tx.vout[k]
-                    s = out.scriptPubKey
-                    if s[0] != OP_REGISTERACCESSKEY:
-                        continue
-                        
-                    if s[1] == OP_PUSHDATA1:
-                        size = int(binascii.hexlify(s[2:3]), 16)
-                        base = 3
-                    elif s[1] == OP_PUSHDATA2:
-                        size = int(binascii.hexlify(s[2:4]), 16)
-                        base = 4
-                    elif s[1] == OP_PUSHDATA4:
-                        size = int(binascii.hexlify(s[2:6]), 16)
-                        base = 6
-                    else:
-                        continue
+        head = self.blockcount
+        while head < current - self.minconf:
+            if head + config['maxgap'] <= current - self.minconf:
+                blocklist = []
+                i = head + config['maxgap'] - 1
+                h = self.proxy.getblockhash(i)
+                while i >= head:
+                    b = self.proxy.getblock(h)
+                    blocklist.insert(0,b)
+                    h = b.hashPrevBlock
+                    i -= 1
+                if config['paranoid']:
+                    if head > 0:
+                        hh = self.proxy.getblockhash(head-1)
+                        assert h == hh
+                head += config['maxgap']
+            else:
+                blocklist = []
+                h = self.proxy.getblockhash(head)
+                b = self.proxy.getblock(h)
+                blocklist.append[b]
+                head += 1
+            for b in blocklist:
+                for j in range (0,len(b.vtx)):
+                    tx = b.vtx[j]
+                    #print('vout len = %d' % len(tx.vout))
+                    for k in range(0,len(tx.vout)):
+                        out = tx.vout[k]
+                        s = out.scriptPubKey
+                        if s[0] != OP_REGISTERACCESSKEY:
+                            continue
 
-                    #print('size =%d' % size)
-                    if size != 101:
-                        continue
-                        
-                    nak = NAK.deserialize(s[base:base+101])
-                    if nak is not None:
-                        logging.info('inserting NAK = ' + str(nak))
-                        with self.db.write_batch() as wb:
-                            nkey = binascii.unhexlify(nak.pubkey.compress())
-                            wb.put(nkey, nak.dumpjson().encode('UTF-8'))
-                            self.status['blockcount'] = i
-                            self.blockcount = i
-                            wb.put(_config_key, json.dumps(self.status).encode('UTF-8'))
+                        if s[1] == OP_PUSHDATA1:
+                            size = int(binascii.hexlify(s[2:3]), 16)
+                            base = 3
+                        elif s[1] == OP_PUSHDATA2:
+                            size = int(binascii.hexlify(s[2:4]), 16)
+                            base = 4
+                        elif s[1] == OP_PUSHDATA4:
+                            size = int(binascii.hexlify(s[2:6]), 16)
+                            base = 6
+                        else:
+                            continue
+
+                        #print('size =%d' % size)
+                        if size != 101:
+                            continue
+
+                        nak = NAK.deserialize(s[base:base+101])
+                        if nak is not None:
+                            logging.info('inserting NAK = ' + str(nak))
+                            with self.db.write_batch() as wb:
+                                nkey = binascii.unhexlify(nak.pubkey.compress())
+                                wb.put(nkey, nak.dumpjson().encode('UTF-8'))
+                                self.status['blockcount'] = i
+                                self.blockcount = i
+                                wb.put(_config_key, json.dumps(self.status).encode('UTF-8'))
+            logging.info('checkpointing NAK cache to block %d' % head)
+            self.status['blockcount'] = head
+            self.db.put(_config_key, json.dumps(self.status).encode('UTF-8'))
         self.status['blockcount'] = current-self.minconf
         self.blockcount = current-self.minconf
         self.db.put(_config_key, json.dumps(self.status).encode('UTF-8'))
