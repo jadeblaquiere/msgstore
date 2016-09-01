@@ -239,36 +239,34 @@ class OnionHandler(tornado.web.RequestHandler):
     def callback(self, resp):
         if resp.code != 200:
             self.set_status(400)
-            self.finish()
-        try:
-            self.write(resp.body)
-        except:
-            self.set_status(400)
-        finally:
-            self.finish()
+        else:
+            try:
+                self.write(resp.body)
+            except:
+                self.set_status(400)
+        self.finish()
         
     def callback_encrypt(self, resp):
         if resp.code != 200:
             self.set_status(400)
-            self.finish()
-        ecdh = self.client_R * server_p
-        keybin = hashlib.sha256(ecdh.compress()).digest()
-        #logging.info('ecdh key hex = ' + str(hexlify(keybin)))
-        iv = random.randint(0,(1 << 128)-1)
-        ivbin = unhexlify('%032x' % iv)
-        #logging.info('iv hex = ' + str(hexlify(ivbin)))
-        counter = Counter.new(128, initial_value=iv)
-        cryptor = AES.new(keybin, AES.MODE_CTR, counter=counter)
-        ciphertext = cryptor.encrypt(resp.body)
-        sig = ecdsa.sign(server_p, ivbin + ciphertext)
-        #logging.info('sig = ' + str(sig))
-        sigbin = unhexlify('%064x' % sig[0]) + unhexlify('%064x' % sig[1])
-        try:
-            self.write(base64.b64encode(sigbin + ivbin + ciphertext))
-        except:
-            self.set_status(400)
-        finally:
-            self.finish()
+        else:
+            ecdh = self.client_R * server_p
+            keybin = hashlib.sha256(ecdh.compress()).digest()
+            #logging.info('ecdh key hex = ' + str(hexlify(keybin)))
+            iv = random.randint(0,(1 << 128)-1)
+            ivbin = unhexlify('%032x' % iv)
+            #logging.info('iv hex = ' + str(hexlify(ivbin)))
+            counter = Counter.new(128, initial_value=iv)
+            cryptor = AES.new(keybin, AES.MODE_CTR, counter=counter)
+            ciphertext = cryptor.encrypt(resp.body)
+            sig = ecdsa.sign(server_p, ivbin + ciphertext)
+            #logging.info('sig = ' + str(sig))
+            sigbin = unhexlify('%064x' % sig[0]) + unhexlify('%064x' % sig[1])
+            try:
+                self.write(base64.b64encode(sigbin + ivbin + ciphertext))
+            except:
+                self.set_status(400)
+        self.finish()
         
     @tornado.web.asynchronous
     def post(self, pubkey=None):
@@ -317,6 +315,7 @@ class OnionHandler(tornado.web.RequestHandler):
                 self.client_R = Point.decompress(o_r['replykey'])
                 req = tornado.httpclient.HTTPRequest(o_server+o_path,
                                                      method='GET', 
+                                                     headers=o_r['headers'], 
                                                      connect_timeout=30, 
                                                      request_timeout=60)
                 onion_client.fetch(req, self.callback_encrypt)
@@ -327,6 +326,7 @@ class OnionHandler(tornado.web.RequestHandler):
                 req = tornado.httpclient.HTTPRequest(o_server+o_path,
                                                      method='POST',
                                                      body=o_r['body'],
+                                                     headers=o_r['headers'], 
                                                      connect_timeout=30,
                                                      request_timeout=60)
                 onion_client.fetch(req, self.callback_encrypt)
