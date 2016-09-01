@@ -94,7 +94,7 @@ class NAKCache(object):
                 blocklist = []
                 h = self.proxy.getblockhash(head)
                 b = self.proxy.getblock(h)
-                blocklist.append[b]
+                blocklist.append(b)
                 head += 1
             for b in blocklist:
                 for j in range (0,len(b.vtx)):
