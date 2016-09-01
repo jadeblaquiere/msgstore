@@ -252,7 +252,7 @@ class OnionHandler(tornado.web.RequestHandler):
             self.set_status(400)
             self.finish()
         ecdh = self.client_R * server_p
-        keybin = hashlib.sha256(ecdh.compress().encode('UTF-8')).digest()
+        keybin = hashlib.sha256(ecdh.compress()).digest()
         #logging.info('ecdh key hex = ' + str(hexlify(keybin)))
         iv = random.randint(0,(1 << 128)-1)
         ivbin = unhexlify('%032x' % iv)
@@ -288,7 +288,7 @@ class OnionHandler(tornado.web.RequestHandler):
             self.finish()
         
         ecdh = P * server_p
-        keybin = hashlib.sha256(ecdh.compress().encode('UTF-8')).digest()
+        keybin = hashlib.sha256(ecdh.compress()).digest()
         b = self.request.body
         bd = base64.b64decode(b)
         nakpubraw = hexlify(bd[:33])

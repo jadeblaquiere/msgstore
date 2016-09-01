@@ -399,7 +399,7 @@ class PeerCache (object):
                                 if pushcount > self.maxpush:
                                     break
                         else:
-                            logging.debug('ignoring local expiring ' + lm.msgid())
+                            logging.debug('ignoring local expiring ' + lm.I.compress().decode())
                     tpush += pushcount
                     pushcount = 0
                     logging.debug("remote right = %d" % len(lbr_sort['right']))
@@ -411,7 +411,7 @@ class PeerCache (object):
                                 if pushcount > self.maxpush:
                                     break
                         else:
-                            logging.debug('ignoring remote expiring ' + lm.msgid())
+                            logging.debug('ignoring remote expiring ' + lm.I.compress().decode())
                     tpush += pushcount
 
                 if tpush == 0:
