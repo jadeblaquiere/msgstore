@@ -96,6 +96,7 @@ class NAKCache(object):
                 b = self.proxy.getblock(h)
                 blocklist.append(b)
                 head += 1
+            i = self.blockcount
             for b in blocklist:
                 for j in range (0,len(b.vtx)):
                     tx = b.vtx[j]
@@ -131,6 +132,7 @@ class NAKCache(object):
                                 self.status['blockcount'] = i
                                 self.blockcount = i
                                 wb.put(_config_key, json.dumps(self.status).encode('UTF-8'))
+                i += 1
             logging.info('checkpointing NAK cache to block %d' % head)
             self.status['blockcount'] = head
             self.db.put(_config_key, json.dumps(self.status).encode('UTF-8'))
