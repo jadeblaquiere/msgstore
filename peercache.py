@@ -55,8 +55,8 @@ _peer_psync_interval = (2*60)   # 2 minutes
 
 sclient = HTTPClient()
 
-seed_peers = ['ciphrtxt.com:7754', 
-              'coopr8.com:7754']
+seed_peers = ['violet.ciphrtxt.com:7754', 
+              'indigo.ciphrtxt.com:7754']
 
 config = {}
 config['rpchost'] = '127.0.0.1'
