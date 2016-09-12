@@ -33,5 +33,5 @@ ls
 #yum install leveldb leveldb-devel
 echo "Dockerfile implemented as"
 cat Dockerfile
-echo "installing pip requirements"
-pip install -r requirements.txt
+#echo "installing pip requirements"
+#pip install -r requirements.txt
