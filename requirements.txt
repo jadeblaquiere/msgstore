@@ -1,0 +1,7 @@
+tornado
+requests
+requests_futures
+plyvel
+pycrypto
+-e git+https://github.com/jadeblaquiere/ecpy.git#egg=ECpy
+-e git+https://github.com/jadeblaquiere/python-ctcoinlib.git#egg=python-ctcoinlib
