@@ -27,7 +27,9 @@ echo "---> Building application from source..."
 # TODO: Add build steps for your application, eg npm install, bundle install
 echo "building from msgstore GIT assemble script in working dir"
 pwd
-echo "installing RPM dependencies"
-sudo yum install leveldb leveldb-devel
+echo "local files"
+ls
+#echo "installing RPM dependencies"
+#yum install leveldb leveldb-devel
 echo "installing pip requirements"
 pip install -r requirements.txt
