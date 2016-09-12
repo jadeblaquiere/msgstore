@@ -31,5 +31,7 @@ echo "local files"
 ls
 #echo "installing RPM dependencies"
 #yum install leveldb leveldb-devel
+echo "Dockerfile implemented as"
+cat Dockerfile
 echo "installing pip requirements"
 pip install -r requirements.txt
