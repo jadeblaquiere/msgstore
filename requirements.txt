@@ -1,0 +1,8 @@
+tornado
+requests
+requests_futures
+plyvel
+pycrypto
+git+https://github.com/jadeblaquiere/ecpy.git
+git+https://github.com/jadeblaquiere/ciphrtxt-lib.git
+git+https://github.com/jadeblaquiere/python-ctcoinlib.git
