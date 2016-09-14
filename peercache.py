@@ -30,6 +30,7 @@ import json
 import logging
 import time
 import os
+import random
 from tornado.httpclient import HTTPClient, HTTPRequest, HTTPError
 from lbr import lbr
 from msgstoreclient import MsgStore
@@ -375,19 +376,24 @@ class PeerCache (object):
 
                 lhdr = local.get_headers()
                 logging.debug('local got %d headers' % len(lhdr))
-                rlist = []
-                for r in remotes:
+                #rlist = []
+                
+                tpush = 0
+                if len(remotes) > 0:
+                    r = random.choice(remotes)
+                
+                #for r in remotes:
                     rhdr = r.get_headers()
                     logging.debug('remote (%s) got %d headers' % (r.baseurl, len(rhdr)))
-                    rtmp = {}
-                    rtmp['store'] = r
-                    rtmp['hdrs'] = rhdr
-                    rlist.append(rtmp)
+                    #rtmp = {}
+                    #rtmp['store'] = r
+                    #rtmp['hdrs'] = rhdr
+                    #rlist.append(rtmp)
 
-                tpush = 0
-                for rl in rlist:
-                    r = rl['store']
-                    rhdr = rl['hdrs']
+                #tpush = 0
+                #for rl in rlist:
+                    #r = rl['store']
+                    #rhdr = rl['hdrs']
                     lbr_sort = lbr(lhdr, rhdr, reverse=True)
                     pushcount = 0
                     logging.debug("local left = %d" % len(lbr_sort['left']))
@@ -415,6 +421,9 @@ class PeerCache (object):
                     tpush += pushcount
 
                 if tpush == 0:
+                    for r in remotes:
+                        rhdr = r.get_headers()
+                        logging.debug('remote (%s) got %d headers' % (r.baseurl, len(rhdr)))
                     time.sleep(_peer_msync_timeout)
             except:
                 logging.exception('peer sync thread: uncaught exception')
