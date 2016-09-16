@@ -376,48 +376,36 @@ class PeerCache (object):
 
                 lhdr = local.get_headers()
                 logging.debug('local got %d headers' % len(lhdr))
-                #rlist = []
-                
+
                 tpush = 0
                 if len(remotes) > 0:
                     r = random.choice(remotes)
-                
-                #for r in remotes:
                     rhdr = r.get_headers()
                     logging.debug('remote (%s) got %d headers' % (r.baseurl, len(rhdr)))
-                    #rtmp = {}
-                    #rtmp['store'] = r
-                    #rtmp['hdrs'] = rhdr
-                    #rlist.append(rtmp)
-
-                #tpush = 0
-                #for rl in rlist:
-                    #r = rl['store']
-                    #rhdr = rl['hdrs']
                     lbr_sort = lbr(lhdr, rhdr, reverse=True)
                     pushcount = 0
                     logging.debug("local left = %d" % len(lbr_sort['left']))
                     for lm in lbr_sort['left']:
                         if lm.expire > r.servertime:
-                            logging.debug('local pull async ' + lm.I.compress().decode())
+                            logging.debug('local pull async ' + lm.Iraw().decode())
                             if local.get_message_async(lm,r.post_message):
                                 pushcount += 1
                                 if pushcount > self.maxpush:
                                     break
                         else:
-                            logging.debug('ignoring local expiring ' + lm.I.compress().decode())
+                            logging.debug('ignoring local expiring ' + lm.Iraw().decode())
                     tpush += pushcount
                     pushcount = 0
                     logging.debug("remote right = %d" % len(lbr_sort['right']))
                     for rm in lbr_sort['right']:
                         if rm.expire > local.servertime:
-                            logging.debug('remote pull async ' + rm.I.compress().decode())
+                            logging.debug('remote pull async ' + rm.Iraw().decode())
                             if r.get_message_async(rm,local.post_message):
                                 pushcount += 1
                                 if pushcount > self.maxpush:
                                     break
                         else:
-                            logging.debug('ignoring remote expiring ' + lm.I.compress().decode())
+                            logging.debug('ignoring remote expiring ' + lm.Iraw().decode())
                     tpush += pushcount
 
                 if tpush == 0:

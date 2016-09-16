@@ -26,7 +26,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
-from ciphrtxt.message import MessageHeader, Message
+from ciphrtxt.message import RawMessageHeader, Message
 import requests
 import requests_futures
 from requests_futures.sessions import FuturesSession
@@ -82,7 +82,7 @@ class MsgStore (object):
         for h in self.headers:
             if servertime > h.expire:
                 self._insert_lock.acquire()
-                #print('expiring ' + h.I.compress().decode())
+                #print('expiring ' + h.Iraw().decode())
                 self.headers.remove(h)
                 self._insert_lock.release()
         self.last_sync = time.time()
@@ -97,7 +97,7 @@ class MsgStore (object):
         remote = sorted(json.loads(r.text)['header_list'],
                         key=lambda k: int(k[6:14],16), reverse=True)
         for rstr in reversed(remote):
-            rhdr = MessageHeader()
+            rhdr = RawMessageHeader()
             if rhdr._deserialize_header(rstr.encode()):
                 self._insert_lock.acquire()
                 if rhdr not in self.headers:
@@ -118,7 +118,7 @@ class MsgStore (object):
             return None
         r = None
         try:
-            r = self.session.get(self.baseurl + _download_message + hdr.I.compress().decode(), stream=True)
+            r = self.session.get(self.baseurl + _download_message + hdr.Iraw().decode(), stream=True)
         except (Timeout, ConnectionError, HTTPError):
             return None
         if r.status_code != 200:
@@ -149,7 +149,7 @@ class MsgStore (object):
         self._sync_headers()
         if hdr not in self.headers:
             return False
-        url = self.baseurl + _download_message + hdr.I.compress().decode()
+        url = self.baseurl + _download_message + hdr.Iraw().decode()
         qentry = (url, callback)
         if qentry in self._get_queue:
             return False
@@ -166,7 +166,7 @@ class MsgStore (object):
         if msg in self.headers:
             return
         raw = msg.serialize()
-        nhdr = MessageHeader.deserialize(raw)
+        nhdr = RawMessageHeader.deserialize(raw)
         f = io.StringIO(raw.decode())
         files = {'message': ('message', f)}
         try:
