@@ -51,7 +51,7 @@ _statusPath = 'api/status/'
 _peerListPath = 'api/peer/list/'
 _peerUpdatePath = 'api/peer/update/'
 
-_peer_msync_timeout = 30
+_peer_msync_timeout = 10
 _peer_psync_interval = (2*60)   # 2 minutes
 
 sclient = HTTPClient()
@@ -267,6 +267,7 @@ class PeerCache (object):
         self.max_age = _default_max_age
         self.peers = []
         self.maxpush = 20
+        self.catchup = 200
         self.hostinfo = PeerHost(host, port, Pkey, coinhost, coinport)
         for s in seed_peers:
             p = s.split(':')
@@ -385,15 +386,25 @@ class PeerCache (object):
                     lbr_sort = lbr(lhdr, rhdr, reverse=True)
                     pushcount = 0
                     logging.debug("local left = %d" % len(lbr_sort['left']))
-                    for lm in lbr_sort['left']:
-                        if lm.expire > r.servertime:
-                            logging.debug('local pull async ' + lm.Iraw().decode())
-                            if local.get_message_async(lm,r.post_message):
-                                pushcount += 1
-                                if pushcount > self.maxpush:
-                                    break
-                        else:
-                            logging.debug('ignoring local expiring ' + lm.Iraw().decode())
+                    if len(lbr_sort['left']) > self.catchup:
+                        while pushcount <= self.maxpush:
+                            lm = random.choice(lbr_sort['left'])
+                            if lm.expire > r.servertime:
+                                logging.debug('local pull async ' + lm.Iraw().decode())
+                                if local.get_message_async(lm,r.post_message):
+                                    pushcount += 1
+                            else:
+                                logging.debug('ignoring local expiring ' + lm.Iraw().decode())
+                    else:
+                        for lm in lbr_sort['left']:
+                            if lm.expire > r.servertime:
+                                logging.debug('local pull async ' + lm.Iraw().decode())
+                                if local.get_message_async(lm,r.post_message):
+                                    pushcount += 1
+                                    if pushcount > self.maxpush:
+                                        break
+                            else:
+                                logging.debug('ignoring local expiring ' + lm.Iraw().decode())
                     tpush += pushcount
                     pushcount = 0
                     logging.debug("remote right = %d" % len(lbr_sort['right']))
