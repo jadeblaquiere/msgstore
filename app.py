@@ -112,8 +112,14 @@ class VersionHandler(tornado.web.RequestHandler):
 
 class IndexHandler(tornado.web.RequestHandler):
     def get(self):
-        mlist = sorted(mcache.list_all(), key=lambda k: k['expire'], reverse=True)
+        hourago = int(time.time() - 3600)
+        mlist = sorted(mcache.list_since(hourago), key=lambda k: k['expire'], reverse=True)
         self.render("templates/index.html", messagelist=mlist)
+
+class PeersHandler(tornado.web.RequestHandler):
+    def get(self):
+        plist = sorted(pcache.list_peers(), key=lambda k: k['host'])
+        self.render("templates/peers.html", peerlist=plist)
 
 class MessageUploadHandler(tornado.web.RequestHandler):
     def post(self):
@@ -374,7 +380,8 @@ application = tornado.web.Application([
     (r'/api/version/?', VersionHandler),
     (r'/onion/(?P<pubkey>[0-9a-fA-F]+$)/?', OnionHandler),
     (r'/?', IndexHandler),
-    (r'/index.html', IndexHandler)
+    (r'/index.html', IndexHandler),
+    (r'/peers.html', PeersHandler)
 ])
  
 def nak_sync_thread():

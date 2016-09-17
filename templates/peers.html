@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+<link rel="stylesheet" href="static/css/main.css">
+<title>Message Store Console</title>
+</head>
+<body>
+<div class="jumbotron">
+    <div class="container">
+        <h1>Message Store Console</h1>
+        <h3><a href="/">messages</a></h3>
+        <h3><a href="/api/status">status api</a></h3>
+        <h3><a href="/api/message/list">message list api</a></h3>
+        <h3><a href="/api/peer/list">peer list api</a> <a href="/peers.html">peers html</a></h3>
+        <h3><a href="/api/time">time api</a></h3>
+    </div>
+</div>
+<div class="message_inventory">
+    <div class="container">
+        <h2>Known Peers</h2>
+        <table>
+            <tr>
+                <th>Hostname</th>
+                <th>Port</th>
+                <th>URL</th>
+            </tr>
+            {% for p in peerlist %}
+            <tr>
+                <td>{{ p['host'] }}</td>
+                <td>{{ p['port'] }}</td>
+                <td><a href="http://{{ p['host'] }}:{{ p['port'] }}/">{{ p['host'] }}:{{ p['port'] }}</a></td>
+            </tr>
+            {% end %}
+        </table>
+    </div>
+</div>
+</body>
+</html>
