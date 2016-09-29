@@ -148,7 +148,7 @@ class PeerHost(object):
         req = HTTPRequest(self._baseurl() + _statusPath, method='GET', connect_timeout=30, request_timeout=60)
         try:
             r = sclient.fetch(req)
-        except (HTTPError, ConnectionRefusedError, TimeoutError) :
+        except:
             self.fails += 1
             return False
         if r.code != 200:
