@@ -31,11 +31,8 @@ import mmap
 import os
 import shutil
 import json
-from ciphrtxt.message import MessageHeader, Message, _header_size_w_sig
+from ciphrtxt.message import MessageHeader, Message, _header_size_w_sig_v1, _header_size_w_sig_b64_v2
 from ecpy.point import Point
-
-config = {}
-config['header_size'] = _header_size_w_sig
 
 class MessageFile(Message):
     def __init__(self):
@@ -51,14 +48,18 @@ class MessageFile(Message):
         # validate header
         with open(filepath, "rb") as f:
             mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
-            header = mm[:config['header_size']]
+            ver = mm[:3]
+            if ver == b'M01':
+                header = mm[:_header_size_w_sig_v1]
+            else:
+                header = mm[:_header_size_w_sig_b64_v2]
             mm.close()
             if not self._deserialize_header(header):
                 return False
-            hsplit = header.split(b':')
-            if len(hsplit) != 8:
-                return False
-            self.sig = (int(hsplit[6], 16), int(hsplit[7], 16))
+            #hsplit = header.split(b':')
+            #if len(hsplit) != 8:
+            #    return False
+            #self.sig = (int(hsplit[6], 16), int(hsplit[7], 16))
             self.filepath = filepath
             self.size = os.path.getsize(filepath)
             self.header = header
