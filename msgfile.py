@@ -109,6 +109,7 @@ class MessageFile(Message):
         result["time_str"] = self.time_str
         result["expire_str"] = self.expire_str
         result["servertime"] = self.servertime
+        result["version"] = self.version
         return result
 
     def dumpjson(self):
@@ -127,6 +128,7 @@ class MessageFile(Message):
         result["servertime"] = self.servertime
         result["signature"] = self.sig
         result["header"] = self.header.decode()
+        result["version"] = self.version
         return json.dumps(result)
 
     @staticmethod
@@ -146,6 +148,7 @@ class MessageFile(Message):
             mnew.servertime = mdict['servertime']
             mnew.sig = mdict['signature']
             mnew.header = mdict['header']
+            mnew.version = mdict['version']
             return mnew
         except:
             return None
