@@ -41,6 +41,7 @@ import socket
 from msgfile import MessageFile
 from nakcache import NAKCache
 from ciphrtxt.nak import NAK
+from ciphrtxt.message import RawMessageHeader, _header_size_w_sig_v1, _header_size_w_sig_b64_v2
 
 from msgcache import MessageCache
 from peercache import PeerCache
@@ -70,7 +71,6 @@ config['receive_dir'] = "recv/"
 config['message_dir'] = "messages/"
 config['capacity'] = (128*1024*1024*1024)
 config['max_file_size'] = (256*1024*1024)
-config['header_size'] = (8+1+8+1+66+1+66+1+66)
 config['ncache_sleep_interval'] = 30
 config['version'] = '0.0.2'
 
@@ -135,15 +135,16 @@ class MessageUploadHandler(tornado.web.RequestHandler):
     
         with open(recvpath,'rb') as f :
             mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
-            header = mm[:config['header_size']].decode('UTF-8')
+            ver = mm[:3]
+            if ver == 'M01':
+                header = mm[:_header_size_w_sig_v1].decode('UTF-8')
+            else:
+                header = mm[:_header_size_w_sig_b64_v2].decode('UTF-8')
             mm.close()
-        t = header.split(':')[1]
-        e = header.split(':')[2]
-        I = header.split(':')[3]
-        J = header.split(':')[4]
-        K = header.split(':')[5]
+        mh = RawMessageHeader.deserialize(header)
+        I = mh.Iraw().decode()
 
-        logging.debug('received message ' + I )
+        logging.debug('received message ' + str(I) )
         seek = mcache.get(I)
         if seek is not None:
             logging.info ('dup detected')
