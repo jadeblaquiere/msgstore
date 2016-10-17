@@ -53,10 +53,10 @@ class NAKCache(object):
             rpcstr = rpcuser + ':' + rpcpass + '@'
         url = 'https://' + rpcstr + host + ':' + str(port) + '/'
         self.proxy = ctcoin.rpc.Proxy(service_url=url, service_port=str(port))
-        try:
-            current = self.proxy.getblockcount()
-        except:
-            raise ValueError('Cannot connect to RPC Host')
+        #try:
+        #    current = self.proxy.getblockcount()
+        #except:
+        #    raise ValueError('Cannot connect to RPC Host')
         self.minconf = minconf
         self.db = plyvel.DB(dbdir, create_if_missing=True)
         statusj = self.db.get(_config_key)
@@ -70,7 +70,11 @@ class NAKCache(object):
             self.status['blockcount'] = 0
 
     def sync(self):
-        current = self.proxy.getblockcount()
+        try:
+            current = self.proxy.getblockcount()
+        except:
+            logging.info('Connection to RPC host failed')
+            return False
         if self.blockcount >= current - self.minconf:
             return False
         #print('sync from height %d to %d' % (self.blockcount, current-self.minconf))
