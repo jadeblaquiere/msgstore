@@ -280,12 +280,8 @@ class PeerCache (object):
             rpcstr = ''
             if rpcuser is not None and rpcpass is not None:
                 rpcstr = rpcuser + ':' + rpcpass + '@'
-            url = 'https://' + rpcstr + rpchost + ':' + str(rpcport) + '/'
-            self.proxy = ctcoin.rpc.Proxy(service_url=url, service_port=str(rpcport))
-            try:
-                current = self.proxy.getblockcount()
-            except:
-                raise ValueError('Cannot connect to RPC Host @ ' + url)
+            self.proxyurl = 'https://' + rpcstr + rpchost + ':' + str(rpcport) + '/'
+            self.proxy = ctcoin.rpc.Proxy(service_url=self.proxyurl, service_port=str(rpcport))
         
 
     def refresh(self):
@@ -325,7 +321,11 @@ class PeerCache (object):
                         if n.coinport is not None:
                             nodeaddr += ':' + str(n.coinport)
                         if not self.standalone:
-                            self.proxy.addnode(nodeaddr)
+                            try:
+                                self.proxy.addnode(nodeaddr)
+                            except:
+                                logging.info('failed add peer : connect failed for ' + self.proxyurl)
+                                
             pli = self.hostinfo.peerlistitem()
             if pli not in rlist:
                 #print('uploading ' + str(pli))
