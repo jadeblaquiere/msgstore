@@ -418,8 +418,9 @@ if __name__ == "__main__":
     rpcpass = opts['rpcpass']
     pcache = PeerCache(hname, opts['extport'], coinhost=coinhost, coinport=coinport, standalone=(coinhost == None), rpcuser=rpcuser, rpcpass=rpcpass)
     if opts['nakpriv'] is not None:
-        nak = NAK(privkey=int(opts['nakpriv'], 16))
-        nakpubbin = unhexlify(nak.pubkey.compress())
+        if int(opts['nakpriv'], 16) != 0:
+            nak = NAK(privkey=int(opts['nakpriv'], 16))
+            nakpubbin = unhexlify(nak.pubkey.compress())
     if not opts['standalone']:
         threading.Thread(target=nak_sync_thread).start()
     logging.info('scanning message inventory')
