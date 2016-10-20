@@ -83,8 +83,8 @@ clopts.append({'name':'nakpriv', 'default': None})
 clopts.append({'name':'exthost', 'default': None})
 clopts.append({'name':'extport', 'default': 7754})
 clopts.append({'name':'listenport', 'default': 7754})
-clopts.append({'name':'coinhost', 'default': '127.0.0.1'})
-clopts.append({'name':'coinport', 'default': 7765})
+clopts.append({'name':'coinhost', 'default': None})
+clopts.append({'name':'coinport', 'default': 7764})
 clopts.append({'name':'standalone', 'default': False})
 
 ncache = None
