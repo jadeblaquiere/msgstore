@@ -394,7 +394,7 @@ class PeerCache (object):
                                 lm = random.choice(lbr_sort['left'])
                                 if lm.expire > r.servertime:
                                     logging.debug('local pull async ' + lm.Iraw().decode())
-                                    if local.get_message_async(lm,r.post_message):
+                                    if local.get_message(lm,callback=r.post_message):
                                         pushcount += 1
                                 else:
                                     logging.debug('ignoring local expiring ' + lm.Iraw().decode())
@@ -402,7 +402,7 @@ class PeerCache (object):
                             for lm in lbr_sort['left']:
                                 if lm.expire > r.servertime:
                                     logging.debug('local pull async ' + lm.Iraw().decode())
-                                    if local.get_message_async(lm,r.post_message):
+                                    if local.get_message(lm,callback=r.post_message):
                                         pushcount += 1
                                         if pushcount > self.maxpush:
                                             break
@@ -414,7 +414,7 @@ class PeerCache (object):
                         for rm in lbr_sort['right']:
                             if rm.expire > local.servertime:
                                 logging.debug('remote pull async ' + rm.Iraw().decode())
-                                if r.get_message_async(rm,local.post_message):
+                                if r.get_message(rm,callback=local.post_message):
                                     pushcount += 1
                                     if pushcount > self.maxpush:
                                         break
