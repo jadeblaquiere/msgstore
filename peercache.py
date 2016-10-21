@@ -385,7 +385,7 @@ class PeerCache (object):
                     if len(remotes) > 0:
                         r = random.choice(remotes)
                         rhdr = r.get_headers()
-                        logging.debug('remote (%s) got %d headers' % (r.baseurl, len(rhdr)))
+                        logging.debug('remote (%s) got %d headers' % (r._baseurl(), len(rhdr)))
                         lbr_sort = lbr(lhdr, rhdr, reverse=True)
                         pushcount = 0
                         logging.debug("local left = %d" % len(lbr_sort['left']))
@@ -425,7 +425,7 @@ class PeerCache (object):
                     if tpush == 0:
                         for r in remotes:
                             rhdr = r.get_headers()
-                            logging.debug('remote (%s) got %d headers' % (r.baseurl, len(rhdr)))
+                            logging.debug('remote (%s) got %d headers' % (r._baseurl(), len(rhdr)))
                         time.sleep(_peer_msync_timeout)
                 except:
                     logging.exception('peer sync thread: uncaught exception')
