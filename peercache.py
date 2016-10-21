@@ -32,8 +32,9 @@ import time
 import os
 import random
 from tornado.httpclient import HTTPClient, HTTPRequest, HTTPError
+import tornado.gen
 from lbr import lbr
-from msgstoreclient import MsgStore
+from ciphrtxt.network import MsgStore, CTClient
 import ctcoin.rpc
 
 from ecpy.curves import curve_secp256k1
@@ -133,7 +134,7 @@ class PeerHost(object):
         self.lastseen = 0
         self.fails = 0
         self.peerlist = []
-        self.msgstore = MsgStore(self._baseurl())
+        self.msgstore = MsgStore(self.host,self.port)
         self.last_msgcount = 0
         self.last_fetchtime = 0
         self.score = 0.0
@@ -357,74 +358,76 @@ class PeerCache (object):
             self.peers.append(n)
             
     
+    @tornado.gen.coroutine
     def peer_sync_thread(self):
-        last_psync = 0
-        last_msync = 0
-        
-        while True:
-            try:
-                now = time.time()
-                if now > (last_psync + _peer_psync_interval):
-                    self.discover_peers()
-                    last_psync = now
+        with CTClient() as c:
+            last_psync = 0
+            last_msync = 0
 
-                local = self.hostinfo.msgstore
-                remotes = []
-                for p in self.peers:
-                    if p != self.hostinfo:
-                        r = p.msgstore
-                        remotes.append(r)
+            while True:
+                try:
+                    now = time.time()
+                    if now > (last_psync + _peer_psync_interval):
+                        self.discover_peers()
+                        last_psync = now
 
-                lhdr = local.get_headers()
-                logging.debug('local got %d headers' % len(lhdr))
+                    local = self.hostinfo.msgstore
+                    remotes = []
+                    for p in self.peers:
+                        if p != self.hostinfo:
+                            r = p.msgstore
+                            remotes.append(r)
 
-                tpush = 0
-                if len(remotes) > 0:
-                    r = random.choice(remotes)
-                    rhdr = r.get_headers()
-                    logging.debug('remote (%s) got %d headers' % (r.baseurl, len(rhdr)))
-                    lbr_sort = lbr(lhdr, rhdr, reverse=True)
-                    pushcount = 0
-                    logging.debug("local left = %d" % len(lbr_sort['left']))
-                    if len(lbr_sort['left']) > self.catchup:
-                        while pushcount <= self.maxpush:
-                            lm = random.choice(lbr_sort['left'])
-                            if lm.expire > r.servertime:
-                                logging.debug('local pull async ' + lm.Iraw().decode())
-                                if local.get_message_async(lm,r.post_message):
-                                    pushcount += 1
-                            else:
-                                logging.debug('ignoring local expiring ' + lm.Iraw().decode())
-                    else:
-                        for lm in lbr_sort['left']:
-                            if lm.expire > r.servertime:
-                                logging.debug('local pull async ' + lm.Iraw().decode())
-                                if local.get_message_async(lm,r.post_message):
+                    lhdr = local.get_headers()
+                    logging.debug('local got %d headers' % len(lhdr))
+
+                    tpush = 0
+                    if len(remotes) > 0:
+                        r = random.choice(remotes)
+                        rhdr = r.get_headers()
+                        logging.debug('remote (%s) got %d headers' % (r.baseurl, len(rhdr)))
+                        lbr_sort = lbr(lhdr, rhdr, reverse=True)
+                        pushcount = 0
+                        logging.debug("local left = %d" % len(lbr_sort['left']))
+                        if len(lbr_sort['left']) > self.catchup:
+                            while pushcount <= self.maxpush:
+                                lm = random.choice(lbr_sort['left'])
+                                if lm.expire > r.servertime:
+                                    logging.debug('local pull async ' + lm.Iraw().decode())
+                                    if local.get_message_async(lm,r.post_message):
+                                        pushcount += 1
+                                else:
+                                    logging.debug('ignoring local expiring ' + lm.Iraw().decode())
+                        else:
+                            for lm in lbr_sort['left']:
+                                if lm.expire > r.servertime:
+                                    logging.debug('local pull async ' + lm.Iraw().decode())
+                                    if local.get_message_async(lm,r.post_message):
+                                        pushcount += 1
+                                        if pushcount > self.maxpush:
+                                            break
+                                else:
+                                    logging.debug('ignoring local expiring ' + lm.Iraw().decode())
+                        tpush += pushcount
+                        pushcount = 0
+                        logging.debug("remote right = %d" % len(lbr_sort['right']))
+                        for rm in lbr_sort['right']:
+                            if rm.expire > local.servertime:
+                                logging.debug('remote pull async ' + rm.Iraw().decode())
+                                if r.get_message_async(rm,local.post_message):
                                     pushcount += 1
                                     if pushcount > self.maxpush:
                                         break
                             else:
-                                logging.debug('ignoring local expiring ' + lm.Iraw().decode())
-                    tpush += pushcount
-                    pushcount = 0
-                    logging.debug("remote right = %d" % len(lbr_sort['right']))
-                    for rm in lbr_sort['right']:
-                        if rm.expire > local.servertime:
-                            logging.debug('remote pull async ' + rm.Iraw().decode())
-                            if r.get_message_async(rm,local.post_message):
-                                pushcount += 1
-                                if pushcount > self.maxpush:
-                                    break
-                        else:
-                            logging.debug('ignoring remote expiring ' + lm.Iraw().decode())
-                    tpush += pushcount
+                                logging.debug('ignoring remote expiring ' + lm.Iraw().decode())
+                        tpush += pushcount
 
-                if tpush == 0:
-                    for r in remotes:
-                        rhdr = r.get_headers()
-                        logging.debug('remote (%s) got %d headers' % (r.baseurl, len(rhdr)))
-                    time.sleep(_peer_msync_timeout)
-            except:
-                logging.exception('peer sync thread: uncaught exception')
+                    if tpush == 0:
+                        for r in remotes:
+                            rhdr = r.get_headers()
+                            logging.debug('remote (%s) got %d headers' % (r.baseurl, len(rhdr)))
+                        time.sleep(_peer_msync_timeout)
+                except:
+                    logging.exception('peer sync thread: uncaught exception')
 
                     
