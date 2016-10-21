@@ -1,6 +1,4 @@
 tornado
-requests
-requests_futures
 plyvel
 pycrypto
 git+https://github.com/jadeblaquiere/ecpy.git
