@@ -397,6 +397,20 @@ if __name__ == "__main__":
         tornado.options.define(name=opt['name'], default=opt['default'])
     tornado.options.parse_command_line()
     logging.info('msgstore started unix time ' + str(int(time.time())))
+    msgdirpath = os.path.join(os.getcwd(),'messages')
+    if os.path.exists(msgdirpath):
+        if not os.path.isdir(msgdirpath):
+            logging.error('Error: ./messages is not a directory')
+            quit()
+    else:
+        os.makedirs(msgdirpath)
+    recdirpath = os.path.join(os.getcwd(),'recv')
+    if os.path.exists(recdirpath):
+        if not os.path.isdir(recdirpath):
+            logging.error('Error: ./recv is not a directory')
+            quit()
+    else:
+        os.makedirs(recdirpath)
     logging.info('starting NAK cache thread')
     opts = tornado.options.options
     mcache = MessageCache()
