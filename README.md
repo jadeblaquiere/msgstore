@@ -7,10 +7,10 @@ Running a msgstore node is relatively straightforward:
 1. Install leveldb
 ```
 # for ubuntu 14:
-sudo apt-get install libleveldb1 libleveldb-dev python3 python3-pip
+sudo apt-get install libleveldb1 libleveldb-dev
 
 # for ubuntu 16:
-sudo apt-get install libleveldb1v5 libleveldb-dev python3 python3-pip
+sudo apt-get install libleveldb1v5 libleveldb-dev
 
 # for rh-based distro (e.g. CentOS):
 yum install -y leveldb leveldb-devel 
@@ -25,7 +25,7 @@ git clone https://github.com/jadeblaquiere/msgstore.git
 1. Install python dependencies (NOTE: msgstore is tested with python 3.5 - if your system python is 2.x you should probably use pyenv to set python preference for the local directory)
 ```
 cd msgstore
-pip3 install -r requirements.txt
+pip install -r requirements.txt
 ```
 1. Ensure your network and host are configured to allow incoming connections on ports 7764 (ctcd) and 7754 (msgstore) from your external network hostname/address (which you will need)
 1. (optional) Obtain a Network Access Key (NAK) to support onion routing connecitons... if you don't have one yet you can leave off the --nakpriv option
