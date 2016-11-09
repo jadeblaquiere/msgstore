@@ -100,73 +100,23 @@ ecdsa = ECDSA()
 
 onion_client = tornado.httpclient.AsyncHTTPClient(max_clients=1000)
 
-class TimeHandler(tornado.web.RequestHandler):
+
+class HeadersAPIHandler(tornado.web.RequestHandler):
     def get(self):
-        response = { 'time' : int(time.time()) }
-        self.write(response)
-
-class VersionHandler(tornado.web.RequestHandler):
-    def get(self):
-        response = { 'version': config['version'] }
-        self.write(response)
-
-class IndexHandler(tornado.web.RequestHandler):
-    def get(self):
-        hourago = int(time.time() - 3600)
-        mlist = sorted(mcache.list_since(hourago), key=lambda k: k['expire'], reverse=True)
-        self.render("templates/index.html", messagelist=mlist)
-
-class PeersHandler(tornado.web.RequestHandler):
-    def get(self):
-        plist = sorted(pcache.list_peers(), key=lambda k: k['host'])
-        self.render("templates/peers.html", peerlist=plist)
-
-class MessageUploadHandler(tornado.web.RequestHandler):
-    def post(self):
-        filereq = self.request
-        filedata = self.request.files['message'][0]
-        #print('filereq =', filereq)
-        #print('filedata =', str(filedata))
-        recvpath = config['receive_dir'] + str(int(time.time() * 1000))
-        logging.debug('receiving file as ' + recvpath )
-        fh = open(recvpath, 'wb')
-        fh.write(filedata['body'])
-        fh.close()
-    
-        with open(recvpath,'rb') as f :
-            mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
-            ver = mm[:3]
-            if ver == 'M01':
-                header = mm[:_header_size_w_sig_v1].decode('UTF-8')
-            else:
-                header = mm[:_header_size_w_sig_b64_v2].decode('UTF-8')
-            mm.close()
-        mh = RawMessageHeader.deserialize(header)
-        I = mh.Iraw().decode()
-
-        logging.debug('received message ' + str(I) )
-        seek = mcache.get(I)
-        if seek is not None:
-            logging.info ('dup detected')
-            os.remove(recvpath)
-            self.set_status(400)
-            return
-        
-        m = MessageFile()
-        if m.ingest(recvpath,I) != True :
-            logging.info('ingest failed for message ' + I)
-            os.remove(recvpath)
-            self.set_status(400)
-            return
-
-        msgpath = config['message_dir'] + I
-        m.move_to(msgpath)
-        mcache.add(m)
-        #messagelist.insert(0,m)
-        self.write(m.metadata())
+        try:
+            since = self.get_argument('since')
+            # GET /messages/?since=_____
+            l = mcache.header_list_since(int(since))
+            ml = { "header_list" : l }
+            self.write(ml)
+        except tornado.web.MissingArgumentError:
+            # GET /messages/ - list all
+            l = mcache.header_list_all()
+            ml = { "header_list" : l }
+            self.write(ml)
 
 
-class MessagesHandler(tornado.web.RequestHandler):
+class MessagesAPIHandler(tornado.web.RequestHandler):
     def get(self):
         try:
             since = self.get_argument('since')
@@ -224,19 +174,98 @@ class MessagesHandler(tornado.web.RequestHandler):
         self.write(m.metadata())
 
 
-class HeadersHandler(tornado.web.RequestHandler):
+class PeersAPIHandler(tornado.web.RequestHandler):
     def get(self):
+        l = pcache.list_peers()
+        self.write(json.dumps(l))
+        self.finish
+    def post(self):
         try:
-            since = self.get_argument('since')
-            # GET /messages/?since=_____
-            l = mcache.header_list_since(int(since))
-            ml = { "message_list" : l }
-            self.write(ml)
-        except tornado.web.MissingArgumentError:
-            # GET /messages/ - list all
-            l = mcache.header_list_all()
-            ml = { "message_list" : l }
-            self.write(ml)
+            b = self.request.body
+            d = json.loads(b.decode('UTF-8'))
+            if d['host'].lower() != 'localhost':
+                logging.info('adding candidate peer ' + d['host'])
+                pcache.add_peer(d['host'], d['port'])
+            self.finish()
+        except:
+            self.set_status(400)
+            self.finish()
+
+
+class StatusAPIHandler(tornado.web.RequestHandler):
+    def get(self):
+        status = {}
+        storage = {}
+        storage["capacity"] = config["capacity"]
+        storage["used"] = mcache.messagesize
+        storage["max_file_size"] = config["max_file_size"]
+        storage['messages'] = mcache.messagecount
+        status["storage"] = storage
+        status["pubkey"] = server_P.compress().decode()
+        status["version"] = config['version']
+        self.write(status)
+
+
+class TimeAPIHandler(tornado.web.RequestHandler):
+    def get(self):
+        response = { 'time' : int(time.time()) }
+        self.write(response)
+
+
+class IndexHandler(tornado.web.RequestHandler):
+    def get(self):
+        hourago = int(time.time() - 3600)
+        mlist = sorted(mcache.list_since(hourago), key=lambda k: k['expire'], reverse=True)
+        self.render("templates/index.html", messagelist=mlist)
+
+class PeersHandler(tornado.web.RequestHandler):
+    def get(self):
+        plist = sorted(pcache.list_peers(), key=lambda k: k['host'])
+        self.render("templates/peers.html", peerlist=plist)
+
+class MessageUploadHandler(tornado.web.RequestHandler):
+    def post(self):
+        filereq = self.request
+        filedata = self.request.files['message'][0]
+        #print('filereq =', filereq)
+        #print('filedata =', str(filedata))
+        recvpath = config['receive_dir'] + str(int(time.time() * 1000))
+        logging.debug('receiving file as ' + recvpath )
+        fh = open(recvpath, 'wb')
+        fh.write(filedata['body'])
+        fh.close()
+    
+        with open(recvpath,'rb') as f :
+            mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+            ver = mm[:3]
+            if ver == 'M01':
+                header = mm[:_header_size_w_sig_v1].decode('UTF-8')
+            else:
+                header = mm[:_header_size_w_sig_b64_v2].decode('UTF-8')
+            mm.close()
+        mh = RawMessageHeader.deserialize(header)
+        I = mh.Iraw().decode()
+
+        logging.debug('received message ' + str(I) )
+        seek = mcache.get(I)
+        if seek is not None:
+            logging.info ('dup detected')
+            os.remove(recvpath)
+            self.set_status(400)
+            return
+        
+        m = MessageFile()
+        if m.ingest(recvpath,I) != True :
+            logging.info('ingest failed for message ' + I)
+            os.remove(recvpath)
+            self.set_status(400)
+            return
+
+        msgpath = config['message_dir'] + I
+        m.move_to(msgpath)
+        mcache.add(m)
+        #messagelist.insert(0,m)
+        self.write(m.metadata())
 
 
 class MessageListHandler(tornado.web.RequestHandler):
@@ -315,6 +344,16 @@ class PeerUpdateHandler(tornado.web.RequestHandler):
         except:
             self.set_status(400)
             self.finish()
+
+class TimeHandler(tornado.web.RequestHandler):
+    def get(self):
+        response = { 'time' : int(time.time()) }
+        self.write(response)
+
+class VersionHandler(tornado.web.RequestHandler):
+    def get(self):
+        response = { 'version': config['version'] }
+        self.write(response)
 
 class OnionHandler(tornado.web.RequestHandler):
     def callback(self, resp):
@@ -452,10 +491,14 @@ application = tornado.web.Application([
     (r'/api/status/?', StatusHandler),
     (r'/api/time/?', TimeHandler),
     (r'/api/version/?', VersionHandler),
+    (r'/api/v2/headers/?', HeadersAPIHandler),
+    (r'/api/v2/messages/?', MessagesAPIHandler),
+    (r'/api/v2/messages/(?P<msg_id>[0-9a-fA-F]+$)/?', MessageDownloadHandler),
+    (r'/api/v2/headers/?', HeadersAPIHandler),
+    (r'/api/v2/peers/?', PeersAPIHandler),
+    (r'/api/v2/status/?', StatusAPIHandler),
+    (r'/api/v2/time/?', TimeAPIHandler),
     (r'/index.html', IndexHandler),
-    (r'/headers/?', HeadersHandler),
-    (r'/messages/?', MessagesHandler),
-    (r'/messages/(?P<msg_id>[0-9a-fA-F]+$)/?', MessageDownloadHandler),
     (r'/onion/(?P<pubkey>[0-9a-fA-F]+$)/?', OnionHandler),
     (r'/peers.html', PeersHandler),
     (r'/static/(.*)/?', tornado.web.StaticFileHandler, {'path':'static'}),

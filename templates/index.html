@@ -9,11 +9,11 @@
     <div class="container">
         <h1>Message Store Console</h1>
         <h3><a href="/">messages</a></h3>
-        <h3><a href="/api/status">status api</a></h3>
-        <h3><a href="/api/message/list">message list api</a> <a href="/messages">new message api</a></h3>
-        <h3><a href="/api/header/list/since/0">header list api</a> <a href="/headers">new header api</a></h3>
-        <h3><a href="/api/peer/list">peer list api</a> <a href="/peers.html">peers html</a></h3>
-        <h3><a href="/api/time">time api</a></h3>
+        <h3><a href="/api/status">status api</a> <a href="/api/v2/status">new status api</a></h3>
+        <h3><a href="/api/message/list">message list api</a> <a href="/api/v2/messages">new message api</a></h3>
+        <h3><a href="/api/header/list/since/0">header list api</a> <a href="/api/v2/headers">new header api</a></h3>
+        <h3><a href="/api/peer/list">peer list api</a> <a href="/api/v2/peers">new peer list api</a> <a href="/peers.html">peers html</a></h3>
+        <h3><a href="/api/time">time api</a> <a href="/api/v2/time">new time api</a></h3>
     </div>
 </div>
 <div class="quick_upload">
@@ -30,7 +30,7 @@
             </div>
         </form>
         <h2>New Quick Upload</h2>
-        <form action="messages" method="post" enctype="multipart/form-data">
+        <form action="/api/v2/messages" method="post" enctype="multipart/form-data">
             <div class="form-inline">
                 <div class="form-group">
                     <ul>
