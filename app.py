@@ -180,6 +180,49 @@ class MessagesHandler(tornado.web.RequestHandler):
             ml = { "message_list" : l }
             self.write(ml)
 
+    def post(self):
+        filereq = self.request
+        filedata = self.request.files['message'][0]
+        #print('filereq =', filereq)
+        #print('filedata =', str(filedata))
+        recvpath = config['receive_dir'] + str(int(time.time() * 1000))
+        logging.debug('receiving file as ' + recvpath )
+        fh = open(recvpath, 'wb')
+        fh.write(filedata['body'])
+        fh.close()
+    
+        with open(recvpath,'rb') as f :
+            mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+            ver = mm[:3]
+            if ver == 'M01':
+                header = mm[:_header_size_w_sig_v1].decode('UTF-8')
+            else:
+                header = mm[:_header_size_w_sig_b64_v2].decode('UTF-8')
+            mm.close()
+        mh = RawMessageHeader.deserialize(header)
+        I = mh.Iraw().decode()
+
+        logging.debug('received message ' + str(I) )
+        seek = mcache.get(I)
+        if seek is not None:
+            logging.info ('dup detected')
+            os.remove(recvpath)
+            self.set_status(400)
+            return
+        
+        m = MessageFile()
+        if m.ingest(recvpath,I) != True :
+            logging.info('ingest failed for message ' + I)
+            os.remove(recvpath)
+            self.set_status(400)
+            return
+
+        msgpath = config['message_dir'] + I
+        m.move_to(msgpath)
+        mcache.add(m)
+        #messagelist.insert(0,m)
+        self.write(m.metadata())
+
 
 class HeadersHandler(tornado.web.RequestHandler):
     def get(self):
