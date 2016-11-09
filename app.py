@@ -455,6 +455,7 @@ application = tornado.web.Application([
     (r'/index.html', IndexHandler),
     (r'/headers/?', HeadersHandler),
     (r'/messages/?', MessagesHandler),
+    (r'/messages/(?P<msg_id>[0-9a-fA-F]+$)/?', MessageDownloadHandler),
     (r'/onion/(?P<pubkey>[0-9a-fA-F]+$)/?', OnionHandler),
     (r'/peers.html', PeersHandler),
     (r'/static/(.*)/?', tornado.web.StaticFileHandler, {'path':'static'}),
