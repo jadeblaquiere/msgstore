@@ -166,6 +166,36 @@ class MessageUploadHandler(tornado.web.RequestHandler):
         self.write(m.metadata())
 
 
+class MessagesHandler(tornado.web.RequestHandler):
+    def get(self):
+        try:
+            since = self.get_argument('since')
+            # GET /messages/?since=_____
+            l = mcache.list_since(int(since))
+            ml = { "message_list" : l }
+            self.write(ml)
+        except tornado.web.MissingArgumentError:
+            # GET /messages/ - list all
+            l = mcache.list_all()
+            ml = { "message_list" : l }
+            self.write(ml)
+
+
+class HeadersHandler(tornado.web.RequestHandler):
+    def get(self):
+        try:
+            since = self.get_argument('since')
+            # GET /messages/?since=_____
+            l = mcache.header_list_since(int(since))
+            ml = { "message_list" : l }
+            self.write(ml)
+        except tornado.web.MissingArgumentError:
+            # GET /messages/ - list all
+            l = mcache.header_list_all()
+            ml = { "message_list" : l }
+            self.write(ml)
+
+
 class MessageListHandler(tornado.web.RequestHandler):
     def get(self):
         l = mcache.list_all()
@@ -178,6 +208,7 @@ class MessageListSinceHandler(tornado.web.RequestHandler):
         l = mcache.list_since(time_id)
         ml = { "message_list" : l }
         self.write(ml)
+
 
 class HeaderListSinceHandler(tornado.web.RequestHandler):
     def get(self, time_id=0):
@@ -365,7 +396,6 @@ class OnionHandler(tornado.web.RequestHandler):
         
             
 application = tornado.web.Application([
-    (r'/static/(.*)/?', tornado.web.StaticFileHandler, {'path':'static'}),
     (r'/api/message/download/(?P<msg_id>[0-9a-fA-F]+$)/?', MessageDownloadHandler),
     (r'/api/message/find/(?P<msg_id>[0-9a-fA-F]+$)/?', MessageFindHandler),
     (r'/api/message/upload/?', MessageUploadHandler),
@@ -379,10 +409,13 @@ application = tornado.web.Application([
     (r'/api/status/?', StatusHandler),
     (r'/api/time/?', TimeHandler),
     (r'/api/version/?', VersionHandler),
-    (r'/onion/(?P<pubkey>[0-9a-fA-F]+$)/?', OnionHandler),
-    (r'/?', IndexHandler),
     (r'/index.html', IndexHandler),
-    (r'/peers.html', PeersHandler)
+    (r'/headers/?', HeadersHandler),
+    (r'/messages/?', MessagesHandler),
+    (r'/onion/(?P<pubkey>[0-9a-fA-F]+$)/?', OnionHandler),
+    (r'/peers.html', PeersHandler),
+    (r'/static/(.*)/?', tornado.web.StaticFileHandler, {'path':'static'}),
+    (r'/?', IndexHandler)
 ])
  
 def nak_sync_thread():

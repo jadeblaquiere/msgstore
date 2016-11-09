@@ -8,10 +8,10 @@ Running a msgstore node is relatively straightforward:
 
     ```
     # for ubuntu 14:
-    sudo apt-get install libleveldb1 libleveldb-dev
+    sudo apt-get install python3-pip libleveldb1 libleveldb-dev -y
 
     # for ubuntu 16:
-    sudo apt-get install libleveldb1v5 libleveldb-dev
+    sudo apt-get install python3-pip libleveldb1v5 libleveldb-dev -y
 
     # for centos:
     sudo yum install -y leveldb leveldb-devel 
