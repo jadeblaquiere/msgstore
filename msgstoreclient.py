@@ -38,10 +38,10 @@ from threading import Lock
 
 _baseurl = 'http://ciphrtxt.com:5000/'
 
-_server_time = 'api/time/'
-_headers_since = 'api/header/list/since/'
-_download_message = 'api/message/download/'
-_upload_message = 'api/message/upload/'
+_server_time = 'api/v2/time/'
+_headers_since = 'api/v2/headers?since='
+_download_message = 'api/v2/messages/'
+_upload_message = 'api/v2/messages/'
 
 _cache_expire_time = 5 # seconds
 _high_water = 50

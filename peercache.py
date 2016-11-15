@@ -47,9 +47,9 @@ _default_coin_port=7764
 _default_max_age=(4*60*60)    # 4 hours
 _default_max_fails=1
 
-_statusPath = 'api/status/'
-_peerListPath = 'api/peer/list/'
-_peerUpdatePath = 'api/peer/update/'
+_statusPath = 'api/v2/status/'
+_peerListPath = 'api/v2/peers/'
+_peerUpdatePath = 'api/v2/peers/'
 
 _peer_msync_timeout = 10
 _peer_psync_interval = (2*60)   # 2 minutes
