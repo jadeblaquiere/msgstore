@@ -196,13 +196,18 @@ class StatusAPIHandler(tornado.web.RequestHandler):
     def get(self):
         status = {}
         storage = {}
+        network = {}
         storage["capacity"] = config["capacity"]
         storage["used"] = mcache.messagesize
         storage["max_file_size"] = config["max_file_size"]
+        storage['headers'] = mcache.messagecount
         storage['messages'] = mcache.messagecount
+        network['host'] = pcache.hostinfo.host
+        network['message_service_port'] = pcache.hostinfo.port
+        network['token_service_port'] = pcache.hostinfo.coinport
         status["storage"] = storage
+        status["network"] = network
         status["pubkey"] = server_P.compress().decode()
-        status["version"] = config['version']
         self.write(status)
 
 
@@ -292,11 +297,17 @@ class StatusHandler(tornado.web.RequestHandler):
     def get(self):
         status = {}
         storage = {}
+        network = {}
         storage["capacity"] = config["capacity"]
         storage["used"] = mcache.messagesize
         storage["max_file_size"] = config["max_file_size"]
+        storage['headers'] = mcache.messagecount
         storage['messages'] = mcache.messagecount
+        network['host'] = pcache.hostinfo.host
+        network['message_service_port'] = pcache.hostinfo.port
+        network['token_service_port'] = pcache.hostinfo.coinport
         status["storage"] = storage
+        status["network"] = network
         status["pubkey"] = server_P.compress().decode()
         self.write(status)
 
